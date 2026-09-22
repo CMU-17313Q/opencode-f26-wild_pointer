@@ -32,8 +32,6 @@ AgentCard { name, description, version, supportedInterfaces, capabilities,
 
 ## Notes
 
-- No `message/reply` endpoint exists in A2A; replies are the `message/send`
-  result or `status.message` on the task.
 - Terminal: `COMPLETED FAILED CANCELED REJECTED`.
   Interrupted (client must act): `INPUT_REQUIRED AUTH_REQUIRED`.
 - Errors: `-32001` not found, `-32002` not cancellable,
