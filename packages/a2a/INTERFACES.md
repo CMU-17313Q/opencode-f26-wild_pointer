@@ -16,6 +16,9 @@ message/stream(message: Message, configuration?) -> stream<Event>
 tasks/get(id: string) -> Task
 tasks/list(contextId?, status?) -> { tasks: Task[], nextPageToken }
 tasks/cancel(id: string) -> Task   # -> TASK_STATE_CANCELED
+
+# Agent discovery (plain GET, not JSON-RPC).
+GET {origin}/.well-known/agent-card.json -> AgentCard
 ```
 
 ## Shapes (wire names are camelCase)
