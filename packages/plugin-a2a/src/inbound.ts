@@ -95,9 +95,9 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
   })
   // The socket address is the identity fallback when the peer does not send
   // the x-a2a-peer header; the server prefers the header when present.
-  const listener: Bun.Server = Bun.serve({
+  const listener = Bun.serve({
     port: input.config.listenPort,
-    fetch: (request) => server.fetch(request, listener.requestIP(request)?.address),
+    fetch: (request, self) => server.fetch(request, self.requestIP(request)?.address),
   })
   const port = listener.port ?? input.config.listenPort
   return { stop: () => listener.stop(true), port }
