@@ -14,12 +14,14 @@ export function fakeRunner(
   options: { replies?: string[]; error?: string; delayMs?: number; gate?: Promise<void> } = {},
 ) {
   const runs: Array<{ taskId: string; text: string }> = []
+  const peers: Array<string | undefined> = []
   const aborted: string[] = []
   let active = 0
   let overlapped = false
   const runner: SessionRunner = {
-    async run(taskId, text) {
+    async run(taskId, text, peer) {
       runs.push({ taskId, text })
+      peers.push(peer)
       active += 1
       if (active > 1) overlapped = true
       if (options.gate) await options.gate
@@ -32,7 +34,7 @@ export function fakeRunner(
       aborted.push(taskId)
     },
   }
-  return { runner, runs, aborted, overlapped: () => overlapped }
+  return { runner, runs, peers, aborted, overlapped: () => overlapped }
 }
 
 export function startBridge(runner: SessionRunner, overrides?: Partial<A2AConfig>) {

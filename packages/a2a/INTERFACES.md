@@ -39,3 +39,5 @@ AgentCard { name, description, version, supportedInterfaces, capabilities,
   Interrupted (client must act): `INPUT_REQUIRED AUTH_REQUIRED`.
 - Errors: `-32001` not found, `-32002` not cancellable,
   `-32003` unsupported, `-32602` bad params.
+- Optional `x-a2a-peer` request header lets a caller self-identify; the server
+  records it as `task.metadata.peerId` so the host can log peer identity.

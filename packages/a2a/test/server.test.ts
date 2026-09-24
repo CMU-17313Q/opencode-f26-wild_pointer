@@ -132,6 +132,62 @@ describe("message/send", () => {
     expect(seen.length).toBe(1);
     expect(seen[0]?.messageId).toBe("msg-0");
   });
+
+  test("records the x-a2a-peer header on the task", async () => {
+    const { server } = pair();
+    const named = new A2AClient({
+      baseUrl: "http://a2a.test",
+      headers: { "x-a2a-peer": "alice" },
+      fetchFn: (input, init) => server.fetch(new Request(input, init)),
+    });
+    const task = (await named.sendMessage(userMessage)) as Task;
+    expect(task.metadata?.peerId).toBe("alice");
+  });
+
+  test("falls back to the caller-supplied peer identity", async () => {
+    const { server } = pair();
+    await server.fetch(
+      rpc({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "message/send",
+        params: { message: userMessage },
+      }),
+      "10.0.0.1",
+    );
+    expect(server.listTasks().tasks[0]?.metadata?.peerId).toBe("10.0.0.1");
+  });
+
+  test("the peer header wins over the fallback identity", async () => {
+    const { server } = pair();
+    const request = new Request(
+      rpc({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "message/send",
+        params: { message: userMessage },
+      }),
+      { headers: { "x-a2a-peer": "bob" } },
+    );
+    await server.fetch(request, "10.0.0.1");
+    expect(server.listTasks().tasks[0]?.metadata?.peerId).toBe("bob");
+  });
+
+  test("backfills peer identity on a later message", async () => {
+    const { server, client } = pair();
+    const task = (await client.sendMessage(userMessage)) as Task;
+    expect(task.metadata).toBeUndefined();
+    await server.fetch(
+      rpc({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "message/send",
+        params: { message: { ...userMessage, messageId: "msg-2", taskId: task.id } },
+      }),
+      "10.0.0.1",
+    );
+    expect((await client.getTask(task.id)).metadata?.peerId).toBe("10.0.0.1");
+  });
 });
 
 describe("tasks/get", () => {

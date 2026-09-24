@@ -43,7 +43,7 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
     server.setStatus(task.id, { state: "TASK_STATE_WORKING" })
     let run: { sessionID: string; text: string }
     try {
-      run = await input.runner.run(task.id, text)
+      run = await input.runner.run(task.id, text, peerOf(task))
     } catch (error) {
       if (!settled(task.status.state)) server.setStatus(task.id, failed(reason(error)))
       return
@@ -93,7 +93,12 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
     onMessage,
     onCancel: (task) => input.runner.abort(task.id),
   })
-  const listener = Bun.serve({ port: input.config.listenPort, fetch: (request) => server.fetch(request) })
+  // The socket address is the identity fallback when the peer does not send
+  // the x-a2a-peer header; the server prefers the header when present.
+  const listener = Bun.serve({
+    port: input.config.listenPort,
+    fetch: (request, self) => server.fetch(request, self.requestIP(request)?.address),
+  })
   const port = listener.port ?? input.config.listenPort
   return { stop: () => listener.stop(true), port }
 }
@@ -134,6 +139,11 @@ function failed(text: string): TaskStatus {
     state: "TASK_STATE_FAILED",
     message: { messageId: crypto.randomUUID(), role: "ROLE_AGENT", parts: [{ text }] },
   }
+}
+
+function peerOf(task: Task): string | undefined {
+  const peer = task.metadata?.peerId
+  return typeof peer === "string" ? peer : undefined
 }
 
 function reason(error: unknown): string {

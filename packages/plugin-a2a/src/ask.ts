@@ -1,6 +1,7 @@
 import {
   A2AClient,
   A2AError,
+  A2A_PEER_HEADER,
   ConversationTracker,
   type Message,
   type Part,
@@ -129,7 +130,7 @@ async function resolveConversation(deps: AskDeps, args: AskArgs, baseUrl: string
         throw new Error(`Task "${args.taskId}" belongs to peer "${cached.peerId}", not "${args.peer}"`)
       return cached
     }
-    const client = new A2AClient({ baseUrl })
+    const client = new A2AClient({ baseUrl, headers: peerHeaders(deps.config) })
     const task = await request(args.peer, () => client.getTask(args.taskId!))
     const tracker = new ConversationTracker({ taskId: task.id })
     tracker.sync(task, speakerOf)
@@ -143,8 +144,13 @@ async function resolveConversation(deps: AskDeps, args: AskArgs, baseUrl: string
     deps.store.save(task.id, conversation)
     return conversation
   }
-  const client = new A2AClient({ baseUrl })
+  const client = new A2AClient({ baseUrl, headers: peerHeaders(deps.config) })
   return { peerId: args.peer, client, streaming: await supportsStreaming(client) }
+}
+
+// Self-identify to the peer so its session record can name who is calling.
+function peerHeaders(config: A2AConfig): Record<string, string> | undefined {
+  return config.name === undefined ? undefined : { [A2A_PEER_HEADER]: config.name }
 }
 
 async function pollTurn(

@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test"
 import type { PluginInput } from "@opencode-ai/plugin"
 import { createSessionRunner } from "../src/session.ts"
 
-type Part = { type: string; text: string; synthetic?: boolean; ignored?: boolean }
+type Part = {
+  type: string
+  text?: string
+  synthetic?: boolean
+  ignored?: boolean
+  state?: { status?: string; error?: string }
+}
 type PromptBody = { parts: Part[]; agent?: string; model?: { providerID: string; modelID: string } }
 type PromptReply = {
   info?: { error?: { name: string; data?: Record<string, unknown> } }
@@ -118,6 +124,59 @@ describe("session runner", () => {
     await expect(createSessionRunner({ client: whitespace.client }).run("task-1", "hi")).rejects.toThrow(
       "no text reply",
     )
+  })
+
+  test("names the session record after the peer", async () => {
+    const fake = fakeClient()
+    const runner = createSessionRunner({ client: fake.client })
+    await runner.run("task-1", "hi", "alice")
+    expect(fake.created).toEqual([{ title: "A2A alice task-1" }])
+  })
+
+  test("a rule-denied tool call fails the run with the permission error", async () => {
+    const fake = fakeClient(() => ({
+      parts: [
+        {
+          type: "tool",
+          state: {
+            status: "error",
+            error:
+              "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules []",
+          },
+        },
+        { type: "text", text: "I could not do that" },
+      ],
+    }))
+    const runner = createSessionRunner({ client: fake.client })
+    await expect(runner.run("task-1", "delete everything")).rejects.toThrow("permission denied")
+  })
+
+  test("a rejected permission prompt fails the run even without reply text", async () => {
+    const fake = fakeClient(() => ({
+      parts: [
+        {
+          type: "tool",
+          state: {
+            status: "error",
+            error: "The user rejected permission to use this specific tool call.",
+          },
+        },
+      ],
+    }))
+    const runner = createSessionRunner({ client: fake.client })
+    await expect(runner.run("task-1", "rm -rf /")).rejects.toThrow("rejected permission")
+  })
+
+  test("ordinary tool errors do not fail the run", async () => {
+    const fake = fakeClient(() => ({
+      parts: [
+        { type: "tool", state: { status: "error", error: "ENOENT: no such file" } },
+        { type: "text", text: "the file does not exist" },
+      ],
+    }))
+    const runner = createSessionRunner({ client: fake.client })
+    const result = await runner.run("task-1", "hi")
+    expect(result.text).toBe("the file does not exist")
   })
 
   test("aborts only sessions it created", async () => {
