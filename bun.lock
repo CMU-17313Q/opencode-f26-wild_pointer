@@ -733,6 +733,24 @@
         "@opentui/solid",
       ],
     },
+    "packages/plugin-a2a": {
+      "name": "@opencode-ai/plugin-a2a",
+      "dependencies": {
+        "@opencode-ai/plugin": "workspace:*",
+        "a2a": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@tsconfig/bun": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
     "packages/protocol": {
       "name": "@opencode-ai/protocol",
       "dependencies": {
@@ -1997,6 +2015,7 @@
     "@opencode-ai/llm": ["@opencode-ai/llm@workspace:packages/llm"],
 
     "@opencode-ai/plugin": ["@opencode-ai/plugin@workspace:packages/plugin"],
+    "@opencode-ai/plugin-a2a": ["@opencode-ai/plugin-a2a@workspace:packages/plugin-a2a"],
 
     "@opencode-ai/protocol": ["@opencode-ai/protocol@workspace:packages/protocol"],
 
