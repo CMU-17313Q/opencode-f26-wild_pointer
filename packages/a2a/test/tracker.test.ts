@@ -20,7 +20,7 @@ function historyTask(ids: string[]): Task {
 
 describe("note", () => {
   test("appends turns with index, speaker, and task linkage", () => {
-    const tracker = new ConversationTracker({ taskId: "task-123" });
+    const tracker = new ConversationTracker({ taskId: "task-123", peerId: "Agent B" });
     tracker.note(makeMessage("m0"), "local");
     tracker.note(makeMessage("m1"), "remote");
     tracker.note(makeMessage("m2"), "local");
@@ -29,6 +29,7 @@ describe("note", () => {
     expect(history.map((turn) => turn.speaker)).toEqual(["local", "remote", "local"]);
     expect(history.map((turn) => turn.taskId)).toEqual(["task-123", "task-123", "task-123"]);
     expect(history.map((turn) => turn.messageId)).toEqual(["m0", "m1", "m2"]);
+    expect(history.map((turn) => turn.peerId)).toEqual(["Agent B", "Agent B", "Agent B"]);
   });
 
   test("duplicate messageId returns the existing turn without appending", () => {
