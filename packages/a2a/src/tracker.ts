@@ -1,8 +1,9 @@
-import type { Speaker, Turn } from "./conversation.ts";
-import type { Message, Task, TaskStatus } from "./types.ts";
+import type { Speaker, Turn } from "./conversation";
+import type { Message, Task, TaskStatus } from "./types";
 
 export interface TrackerOptions {
   taskId: string;
+  peerId?: string;
   timeoutMs?: number;
   now?: () => number;
 }
@@ -19,6 +20,7 @@ export interface CapPolicy {
 export class ConversationTracker {
   readonly taskId: string;
   private readonly timeoutMs: number;
+  private readonly peerId: string | undefined;
   private readonly now: () => number;
   private readonly startedAt: number;
   private readonly turns: Turn[] = [];
@@ -26,6 +28,7 @@ export class ConversationTracker {
 
   constructor(options: TrackerOptions) {
     this.taskId = options.taskId;
+    this.peerId = options.peerId;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.now = options.now ?? (() => Date.now());
     this.startedAt = this.now();
@@ -40,6 +43,7 @@ export class ConversationTracker {
       text: messageText(message),
       messageId: message.messageId,
       taskId: this.taskId,
+      peerId: this.peerId,
     };
     this.turns.push(turn);
     this.seenIds.set(message.messageId, turn);
