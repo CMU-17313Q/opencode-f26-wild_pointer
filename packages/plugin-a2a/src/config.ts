@@ -9,6 +9,9 @@ export const A2AConfigSchema = z.object({
   listenPort: z.number().int().min(0).max(65535).default(0),
   allowedPeers: z.record(z.string(), z.string()).default({}),
   maxTurns: z.number().int().positive().default(4),
+  // This instance's self-identity, sent to peers as the x-a2a-peer header so
+  // the remote host can record who is calling (A2A-007).
+  name: z.string().min(1).optional(),
   // Inbound (A2A-005): agent/model for prompts arriving over A2A. Unset means
   // the opencode defaults for the project the plugin runs in.
   agent: z.string().min(1).optional(),

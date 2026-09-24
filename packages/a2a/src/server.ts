@@ -39,6 +39,10 @@ const STREAM_END_STATES = new Set<TaskState>([...TERMINAL_STATES, ...INTERRUPTED
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
+// Optional request header a peer can use to self-identify; the value is
+// recorded on the task as metadata.peerId for the host's session records.
+export const A2A_PEER_HEADER = "x-a2a-peer";
+
 type RpcId = string | number | null;
 
 const RpcRequestSchema = z.object({
@@ -99,16 +103,18 @@ export class A2AServer {
     this.options = options;
   }
 
-  async fetch(request: Request): Promise<Response> {
+  // `peer` is a caller-supplied identity fallback (e.g. the socket address);
+  // an explicit x-a2a-peer header always wins over it.
+  async fetch(request: Request, peer?: string): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/.well-known/agent-card.json")
       return this.agentCard();
     if (request.method !== "POST") return new Response("Not Found", { status: 404 });
-    return this.rpc(request);
+    return this.rpc(request, request.headers.get(A2A_PEER_HEADER) ?? peer);
   }
 
-  sendMessage(message: Message, configuration?: SendConfiguration): Task {
-    const task = this.record(message);
+  sendMessage(message: Message, configuration?: SendConfiguration, peer?: string): Task {
+    const task = this.record(message, peer);
     this.options.onMessage?.(task, message);
     return view(task, configuration?.historyLength);
   }
@@ -177,7 +183,7 @@ export class A2AServer {
     return Response.json(parsed.data);
   }
 
-  private async rpc(request: Request): Promise<Response> {
+  private async rpc(request: Request, peer?: string): Promise<Response> {
     const body: unknown = await request.json().catch(() => undefined);
     if (body === undefined)
       return rpcError(null, ErrorCode.PARSE_ERROR, "Request body is not valid JSON.");
@@ -188,7 +194,7 @@ export class A2AServer {
     switch (method) {
       case "message/send":
         return this.invoke(id, params, SendMessageParamsSchema, (p) =>
-          this.sendMessage(p.message, p.configuration),
+          this.sendMessage(p.message, p.configuration, peer),
         );
       case "tasks/get":
         return this.invoke(id, params, TaskGetParamsSchema, (p) =>
@@ -199,7 +205,7 @@ export class A2AServer {
       case "tasks/cancel":
         return this.invoke(id, params, TaskCancelParamsSchema, (p) => this.cancelTask(p.id));
       case "message/stream":
-        return this.stream(id, params);
+        return this.stream(id, params, peer);
       default:
         return rpcError(id, ErrorCode.METHOD_NOT_FOUND, `Unknown method "${method}".`);
     }
@@ -222,12 +228,12 @@ export class A2AServer {
     }
   }
 
-  private stream(id: RpcId, params: unknown): Response {
+  private stream(id: RpcId, params: unknown, peer?: string): Response {
     const parsed = SendMessageParamsSchema.safeParse(params);
     if (!parsed.success)
       return rpcError(id, ErrorCode.INVALID_PARAMS, `Invalid params: ${issueText(parsed.error)}`, 400);
     try {
-      const task = this.record(parsed.data.message);
+      const task = this.record(parsed.data.message, peer);
       this.options.onMessage?.(task, parsed.data.message);
       return this.streamResponse(task);
     } catch (error) {
@@ -266,8 +272,8 @@ export class A2AServer {
     });
   }
 
-  private record(message: Message): Task {
-    if (message.taskId === undefined) return this.create(message);
+  private record(message: Message, peer?: string): Task {
+    if (message.taskId === undefined) return this.create(message, peer);
     const task = this.tasks.get(message.taskId);
     if (task === undefined)
       throw new A2AError(ErrorCode.TASK_NOT_FOUND, `Task "${message.taskId}" not found.`);
@@ -276,6 +282,8 @@ export class A2AServer {
         ErrorCode.INVALID_PARAMS,
         `Task "${task.id}" is ${task.status.state} and cannot accept messages.`,
       );
+    if (peer !== undefined && task.metadata?.peerId === undefined)
+      task.metadata = { ...task.metadata, peerId: peer };
     task.history = [...(task.history ?? []), linked(message, task)];
     if (INTERRUPTED_STATES.has(task.status.state))
       task.status = { state: "TASK_STATE_SUBMITTED", timestamp: timestamp() };
@@ -283,12 +291,13 @@ export class A2AServer {
     return task;
   }
 
-  private create(message: Message): Task {
+  private create(message: Message, peer?: string): Task {
     const task: Task = {
       id: crypto.randomUUID(),
       contextId: message.contextId ?? crypto.randomUUID(),
       status: { state: "TASK_STATE_SUBMITTED", timestamp: timestamp() },
       history: [],
+      ...(peer === undefined ? {} : { metadata: { peerId: peer } }),
     };
     task.history = [linked(message, task)];
     this.tasks.set(task.id, task);

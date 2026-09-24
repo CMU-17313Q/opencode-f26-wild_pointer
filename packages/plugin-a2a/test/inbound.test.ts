@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { A2AClient } from "a2a"
 import { CAP_MESSAGE } from "../src/config.ts"
 import { agentReplies, awaitState, fakeRunner, send, startBridge, userMessage } from "./bridge.ts"
 
@@ -135,6 +136,37 @@ describe("inbound bridge", () => {
       expect(fake.overlapped()).toBe(false)
       expect(agentReplies(done)).toEqual(["first", "second"])
       expect(done.status.message?.parts[0]?.text).toBe(CAP_MESSAGE)
+    } finally {
+      bridge.stop()
+    }
+  })
+
+  test("a self-identified peer name reaches the task record and the runner", async () => {
+    const fake = fakeRunner({ replies: ["hi"] })
+    const bridge = startBridge(fake.runner)
+    try {
+      const named = new A2AClient({
+        baseUrl: bridge.baseUrl,
+        headers: { "x-a2a-peer": "alice" },
+      })
+      const task = await send(named, userMessage("hello"))
+      const settled = await awaitState(named, task.id, "TASK_STATE_INPUT_REQUIRED")
+      expect(settled.metadata?.peerId).toBe("alice")
+      expect(fake.peers).toEqual(["alice"])
+    } finally {
+      bridge.stop()
+    }
+  })
+
+  test("the remote address identifies peers that send no header", async () => {
+    const fake = fakeRunner({ replies: ["hi"] })
+    const bridge = startBridge(fake.runner)
+    try {
+      const task = await send(bridge.client, userMessage("hello"))
+      const settled = await awaitState(bridge.client, task.id, "TASK_STATE_INPUT_REQUIRED")
+      const peer = settled.metadata?.peerId
+      if (typeof peer !== "string" || peer === "") throw new Error("peerId not recorded")
+      expect(fake.peers).toEqual([peer])
     } finally {
       bridge.stop()
     }
