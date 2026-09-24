@@ -1,5 +1,5 @@
-import type { Speaker, Turn } from "./conversation.ts";
-import type { Message, Task, TaskStatus } from "./types.ts";
+import type { Speaker, Turn } from "./conversation";
+import type { Message, Task, TaskStatus } from "./types";
 
 export interface TrackerOptions {
   taskId: string;
