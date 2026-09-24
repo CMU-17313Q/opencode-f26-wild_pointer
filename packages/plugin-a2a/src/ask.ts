@@ -202,6 +202,7 @@ async function streamTurn(
   let contextId: string | undefined
   let reply: string | undefined
   let replyMessage: Message | undefined
+  const streamed: Message[] = []
   let artifact: string | undefined
   let state: TaskState | undefined
 
@@ -233,6 +234,7 @@ async function streamTurn(
       }
       reply = messageText(event)
       replyMessage = event
+      streamed.push(event)
     }
   } catch (error) {
     if (error instanceof A2AError) throw new Error(`A2A peer "${peer}" error ${error.code}: ${error.message}`)
@@ -242,6 +244,10 @@ async function streamTurn(
   const tracker = ensureTracker(conversation, taskId)
   tracker?.note(outgoing, "local")
   if (task) tracker?.sync(task, speakerOf)
+  // The task snapshot is written before the host appends its reply, so the
+  // reply only shows up as a stream event: note it or the turn cap would
+  // under-count every streamed reply and let extra asks through.
+  for (const message of streamed) tracker?.note(message, "remote")
   if (!task && replyMessage) tracker?.note(replyMessage, "remote")
   conversation.contextId ??= contextId
   if (tracker && taskId) deps.store.save(taskId, conversation)
