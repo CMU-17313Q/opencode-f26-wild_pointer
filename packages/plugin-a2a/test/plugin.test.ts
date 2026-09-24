@@ -46,9 +46,9 @@ describe("opt-in", () => {
     expect(hooks.tool?.a2a_ask).toBeDefined()
   })
 
-  test("config hook without an a2a section stays disabled", async () => {
+  test("config hook ignores stray top-level config keys", async () => {
     const hooks = await A2APlugin(input)
-    await hooks.config?.({} as unknown as Config)
+    await hooks.config?.({ $schema: "https://opencode.ai/config.json", enabled: true } as unknown as Config)
     expect(hooks.tool).toBeUndefined()
   })
 })

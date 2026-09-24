@@ -22,8 +22,8 @@ export function resolveConfig(input: {
   env?: Record<string, string | undefined>
   hookConfig?: unknown
 }): A2AConfig {
-  const options = section(input.options)
-  const hook = section(input.hookConfig)
+  const options = optionsSection(input.options)
+  const hook = hookSection(input.hookConfig)
   const parsed = A2AConfigSchema.parse({
     ...options,
     ...hook,
@@ -33,12 +33,20 @@ export function resolveConfig(input: {
   return parsed
 }
 
-// Accept both { a2a: {...} } and a flat object so a plugin entry can read
-// naturally as either `{ "a2a": { "enabled": true } }` or `{ "enabled": true }`.
-function section(value: unknown): Record<string, unknown> {
+// Plugin options may be written nested (`{ "a2a": {...} }`) or flat
+// (`{ "enabled": true }`), so both shapes read naturally in opencode.json.
+function optionsSection(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) return {}
   if (isRecord(value.a2a)) return value.a2a
   return value
+}
+
+// The config hook receives the whole merged opencode config. Only an explicit
+// `a2a` section belongs to this plugin; never treat the rest as options, or a
+// future top-level key like `enabled` could switch A2A on by accident.
+function hookSection(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) return {}
+  return isRecord(value.a2a) ? value.a2a : {}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

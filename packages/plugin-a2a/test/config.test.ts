@@ -56,6 +56,19 @@ describe("resolveConfig", () => {
     expect(config.maxTurns).toBe(2)
   })
 
+  test("hook config only reads an explicit a2a section", () => {
+    const stray = resolveConfig({
+      env: {},
+      hookConfig: { $schema: "https://opencode.ai/config.json", model: "x", enabled: true, maxTurns: 2 },
+    })
+    expect(stray.enabled).toBe(false)
+    expect(stray.maxTurns).toBe(4)
+
+    const explicit = resolveConfig({ env: {}, hookConfig: { a2a: { enabled: true, maxTurns: 2 } } })
+    expect(explicit.enabled).toBe(true)
+    expect(explicit.maxTurns).toBe(2)
+  })
+
   test("enabled is an OR across sources", () => {
     const config = resolveConfig({
       env: {},

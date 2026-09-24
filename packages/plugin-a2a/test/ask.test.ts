@@ -159,6 +159,28 @@ describe("a2a_ask", () => {
     }
   })
 
+  test("surfaces a terminal failure on the streaming path", async () => {
+    const peer = createPeer({ streaming: true, silent: true, state: "TASK_STATE_FAILED" })
+    try {
+      const toolDef = createAskTool({ config: configFor(peer.url), store: new ConversationStore() })
+      await expect(call(toolDef, { peer: "peer-a", message: "hello" })).rejects.toThrow("TASK_STATE_FAILED")
+    } finally {
+      peer.stop()
+    }
+  })
+
+  test("errors when the stream ends without a reply", async () => {
+    const peer = createPeer({ streaming: true, silent: true, state: "TASK_STATE_WORKING" })
+    try {
+      const toolDef = createAskTool({ config: configFor(peer.url), store: new ConversationStore() })
+      await expect(call(toolDef, { peer: "peer-a", message: "hello" })).rejects.toThrow(
+        "ended the stream without a reply",
+      )
+    } finally {
+      peer.stop()
+    }
+  })
+
   test("counts prior turns when resuming a task in a fresh plugin", async () => {
     const peer = createPeer({ replies: ["4", "because", "third"] })
     try {
@@ -183,6 +205,24 @@ describe("a2a_ask", () => {
       const toolDef = createAskTool({ config: configFor(peer.url), store: new ConversationStore() })
       await expect(call(toolDef, { peer: "peer-z", message: "hello" })).rejects.toThrow('Unknown A2A peer "peer-z"')
       expect(peer.calls.length).toBe(0)
+    } finally {
+      peer.stop()
+    }
+  })
+
+  test("refuses to reuse a task with a different peer", async () => {
+    const peer = createPeer({ replies: ["4"] })
+    try {
+      const config = configFor(peer.url, { allowedPeers: { "peer-a": peer.url, "peer-b": peer.url } })
+      const toolDef = createAskTool({ config, store: new ConversationStore() })
+      const first = await call(toolDef, { peer: "peer-a", message: "What is 2+2?" })
+      expect(first.metadata?.taskId).toBe("task-1")
+
+      const sends = peer.calls.filter((entry) => entry.method === "message/send").length
+      await expect(call(toolDef, { peer: "peer-b", message: "again", taskId: "task-1" })).rejects.toThrow(
+        'belongs to peer "peer-a"',
+      )
+      expect(peer.calls.filter((entry) => entry.method === "message/send").length).toBe(sends)
     } finally {
       peer.stop()
     }

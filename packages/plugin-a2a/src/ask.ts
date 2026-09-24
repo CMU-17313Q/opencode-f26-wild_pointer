@@ -124,7 +124,11 @@ async function ask(deps: AskDeps, args: AskArgs): Promise<ToolResult> {
 async function resolveConversation(deps: AskDeps, args: AskArgs, baseUrl: string): Promise<Conversation> {
   if (args.taskId) {
     const cached = deps.store.get(args.taskId)
-    if (cached) return cached
+    if (cached) {
+      if (cached.peerId !== args.peer)
+        throw new Error(`Task "${args.taskId}" belongs to peer "${cached.peerId}", not "${args.peer}"`)
+      return cached
+    }
     const client = new A2AClient({ baseUrl })
     const task = await request(args.peer, () => client.getTask(args.taskId!))
     const tracker = new ConversationTracker({ taskId: task.id })
@@ -242,11 +246,19 @@ async function streamTurn(
   conversation.contextId ??= contextId
   if (tracker && taskId) deps.store.save(taskId, conversation)
 
-  return {
+  const outcome: Outcome = {
     reply: reply ?? (tracker && remoteCount(tracker) > priorRemote ? lastRemoteText(tracker) : undefined),
     artifact: artifact ?? (task ? artifactText(task) : undefined),
     state: state ?? task?.status.state ?? (reply ? "TASK_STATE_COMPLETED" : "TASK_STATE_WORKING"),
   }
+
+  // Mirror pollTurn: a failed, canceled, or truncated stream must surface as an
+  // error instead of a successful turn with "Reply: (none)".
+  if (outcome.state === "TASK_STATE_FAILED" || outcome.state === "TASK_STATE_CANCELED")
+    throw new Error(`A2A peer "${peer}" ended task ${taskId ?? task?.id ?? "unknown"} with ${outcome.state}`)
+  if (!outcome.reply && !outcome.artifact && !settled(outcome.state))
+    throw new Error(`A2A peer "${peer}" ended the stream without a reply (task ${taskId ?? "unknown"})`)
+  return outcome
 }
 
 async function request<T>(peer: string, call: () => Promise<T>): Promise<T> {
