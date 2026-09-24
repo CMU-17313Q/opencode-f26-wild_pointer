@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { resolveConfig } from "../src/config.ts"
+import { parseModel, resolveConfig } from "../src/config.ts"
 
 describe("resolveConfig", () => {
   test("is disabled with safe defaults", () => {
@@ -87,5 +87,35 @@ describe("resolveConfig", () => {
     expect(() => resolveConfig({ env: {}, options: { allowedPeers: { "peer-a": "not a url" } } })).toThrow(
       'Invalid URL for A2A peer "peer-a"',
     )
+  })
+
+  test("reads agent and model for inbound prompts", () => {
+    const config = resolveConfig({
+      env: {},
+      options: { enabled: true, agent: "build", model: "anthropic/claude-sonnet-4-5" },
+    })
+    expect(config.agent).toBe("build")
+    expect(config.model).toBe("anthropic/claude-sonnet-4-5")
+    expect(resolveConfig({ env: {} }).agent).toBeUndefined()
+    expect(resolveConfig({ env: {} }).model).toBeUndefined()
+  })
+
+  test("splits the model on the first slash only", () => {
+    expect(parseModel("anthropic/claude-sonnet-4-5")).toEqual({
+      providerID: "anthropic",
+      modelID: "claude-sonnet-4-5",
+    })
+    expect(parseModel("openrouter/vendor/model")).toEqual({
+      providerID: "openrouter",
+      modelID: "vendor/model",
+    })
+  })
+
+  test("rejects an invalid model string", () => {
+    expect(() => resolveConfig({ env: {}, options: { model: "no-slash" } })).toThrow(
+      'Invalid model for A2A: "no-slash"',
+    )
+    expect(() => resolveConfig({ env: {}, options: { model: "/claude" } })).toThrow("Invalid model for A2A")
+    expect(() => resolveConfig({ env: {}, options: { model: "anthropic/" } })).toThrow("Invalid model for A2A")
   })
 })
