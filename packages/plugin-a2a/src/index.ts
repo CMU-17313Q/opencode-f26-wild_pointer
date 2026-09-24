@@ -1,6 +1,7 @@
 import type { Hooks, Plugin, PluginInput, PluginModule } from "@opencode-ai/plugin"
 import { ConversationStore, createAskTool } from "./ask.ts"
 import { resolveConfig, type A2AConfig } from "./config.ts"
+import { createEventEmitter } from "./events.ts"
 import { startInboundServer } from "./inbound.ts"
 import { createSessionRunner, type SessionRunner } from "./session.ts"
 
@@ -8,6 +9,9 @@ import { createSessionRunner, type SessionRunner } from "./session.ts"
 // the plugin exposes no tools and starts nothing.
 export const A2APlugin: Plugin = async (input: PluginInput, options) => {
   const store = new ConversationStore()
+  // a2a.* UI events (a2a.conversation.turn, a2a.task.*) go on the host's global
+  // bus tagged with this directory so the app's event stream can route them.
+  const emit = createEventEmitter(input.directory)
   const hooks: Hooks = {}
   let runner: SessionRunner | undefined
   let inbound: { stop: () => void } | undefined
@@ -20,7 +24,7 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
       inbound = undefined
       return
     }
-    hooks.tool = { a2a_ask: createAskTool({ config, store }) }
+    hooks.tool = { a2a_ask: createAskTool({ config, store, emit }) }
     hooks.dispose = async () => {
       inbound?.stop()
       inbound = undefined
@@ -30,7 +34,7 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
       // Created once so taskId → session mappings survive config
       // re-application; the first resolved agent/model wins.
       runner ??= createSessionRunner({ client: input.client, agent: config.agent, model: config.model })
-      inbound = startInboundServer({ config, runner })
+      inbound = startInboundServer({ config, runner, emit })
     } catch (error) {
       // A bind failure (port in use) must never crash plugin init: the
       // outbound tool still works without the inbound listener.

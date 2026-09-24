@@ -18,6 +18,7 @@
   "dependencies": {
     "@opencode-ai/plugin": "workspace:*",
     "a2a": "workspace:*",
+    "opencode": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
