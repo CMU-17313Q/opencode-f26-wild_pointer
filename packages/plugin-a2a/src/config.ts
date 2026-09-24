@@ -9,6 +9,10 @@ export const A2AConfigSchema = z.object({
   listenPort: z.number().int().min(0).max(65535).default(0),
   allowedPeers: z.record(z.string(), z.string()).default({}),
   maxTurns: z.number().int().positive().default(4),
+  // Inbound (A2A-005): agent/model for prompts arriving over A2A. Unset means
+  // the opencode defaults for the project the plugin runs in.
+  agent: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
 })
 export type A2AConfig = z.infer<typeof A2AConfigSchema>
 
@@ -30,7 +34,18 @@ export function resolveConfig(input: {
     enabled: options.enabled === true || hook.enabled === true || envEnabled(input.env),
   })
   for (const [id, url] of Object.entries(parsed.allowedPeers)) requireUrl(id, url)
+  if (parsed.model !== undefined) parseModel(parsed.model)
   return parsed
+}
+
+// The model config is a "provider/model" string split on the first `/`, so
+// model ids that themselves contain slashes (vendor/path style) stay intact.
+// Both halves must be non-empty; validated eagerly like peer URLs.
+export function parseModel(model: string): { providerID: string; modelID: string } {
+  const separator = model.indexOf("/")
+  const modelID = model.slice(separator + 1)
+  if (separator < 1 || modelID === "") throw new Error(`Invalid model for A2A: "${model}" (expected "provider/model")`)
+  return { providerID: model.slice(0, separator), modelID }
 }
 
 // Plugin options may be written nested (`{ "a2a": {...} }`) or flat
