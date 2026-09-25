@@ -8,6 +8,7 @@ import {
   type TaskStatus,
 } from "a2a"
 import { CAP_MESSAGE, type A2AConfig } from "./config.ts"
+import { noopEmitter, type A2AEventEmitter } from "./events.ts"
 import type { SessionRunner } from "./session.ts"
 
 // One entry per A2A task id. sessionID lands here after the first successful
@@ -23,29 +24,46 @@ type InboundState = {
 // records work and notifies, this bridge runs it (fire-and-forget, because
 // onMessage is synchronous) and writes replies and status transitions back via
 // appendMessage/setStatus so open streams and tasks/get observe them.
-export function startInboundServer(input: { config: A2AConfig; runner: SessionRunner }): {
+export function startInboundServer(input: {
+  config: A2AConfig
+  runner: SessionRunner
+  emit?: A2AEventEmitter
+}): {
   stop: () => void
   port: number
 } {
+  const emit = input.emit ?? noopEmitter
   const states = new Map<string, InboundState>()
   let server: A2AServer
 
+  // Every task transition the bridge writes also leaves as an a2a.task.* event
+  // so the UI thread view tracks the wire state without polling.
+  const notify = (task: Task, status: TaskStatus) => {
+    server.setStatus(task.id, status)
+    const properties = {
+      taskId: task.id,
+      peerId: peerOf(task),
+      state: status.state,
+      ...(status.message ? { content: messageText(status.message) } : {}),
+    }
+    if (status.state === "TASK_STATE_COMPLETED") emit("a2a.task.completed", properties)
+    else if (status.state === "TASK_STATE_FAILED") emit("a2a.task.failed", properties)
+    else emit("a2a.task.updated", properties)
+  }
+
   const respond = async (state: InboundState, task: Task, message: Message) => {
     if (settled(task.status.state)) return
-    const text = message.parts
-      .map((part) => part.text)
-      .join("\n")
-      .trim()
+    const text = messageText(message).trim()
     if (!text) {
-      server.setStatus(task.id, failed("message contained no text"))
+      notify(task, failed("message contained no text"))
       return
     }
-    server.setStatus(task.id, { state: "TASK_STATE_WORKING" })
+    notify(task, { state: "TASK_STATE_WORKING" })
     let run: { sessionID: string; text: string }
     try {
       run = await input.runner.run(task.id, text, peerOf(task))
     } catch (error) {
-      if (!settled(task.status.state)) server.setStatus(task.id, failed(reason(error)))
+      if (!settled(task.status.state)) notify(task, failed(reason(error)))
       return
     }
     // A cancel may have settled the task while the session ran; never write a
@@ -58,29 +76,47 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
       parts: [{ text: run.text }],
     }
     server.appendMessage(task.id, reply)
-    state.tracker.note(reply, "local")
+    const note = state.tracker.note(reply, "local")
+    if (note.kind === "added")
+      emit("a2a.conversation.turn", {
+        speaker: "local",
+        turn: note.turn.index,
+        taskId: task.id,
+        peerId: input.config.name,
+        content: note.turn.text,
+      })
     // Multi-turn needs INPUT_REQUIRED between turns: a COMPLETED task rejects
     // follow-ups with -32602. Only the cap closes the conversation.
     if (state.tracker.history().length >= input.config.maxTurns)
-      server.setStatus(task.id, {
+      notify(task, {
         state: "TASK_STATE_COMPLETED",
         message: { messageId: crypto.randomUUID(), role: "ROLE_AGENT", parts: [{ text: CAP_MESSAGE }] },
       })
-    else server.setStatus(task.id, { state: "TASK_STATE_INPUT_REQUIRED" })
+    else notify(task, { state: "TASK_STATE_INPUT_REQUIRED" })
   }
 
   const onMessage = (task: Task, message: Message) => {
+    const known = states.has(task.id)
     const state: InboundState = states.get(task.id) ?? {
       tracker: new ConversationTracker({ taskId: task.id }),
       queue: Promise.resolve(),
     }
     states.set(task.id, state)
-    if (state.tracker.note(message, "remote").kind === "duplicate") {
+    if (!known) emit("a2a.task.dispatched", { taskId: task.id, peerId: peerOf(task), state: task.status.state })
+    const note = state.tracker.note(message, "remote")
+    if (note.kind === "added")
+      emit("a2a.conversation.turn", {
+        speaker: "remote",
+        turn: note.turn.index,
+        taskId: task.id,
+        peerId: peerOf(task),
+        content: note.turn.text,
+      })
+    if (note.kind === "duplicate") {
       // The server recorded the duplicate and reset an INPUT_REQUIRED task to
       // SUBMITTED; put it back so the retried delivery sees the same settled
       // turn without re-running the session or appending the reply twice.
-      if (task.status.state === "TASK_STATE_SUBMITTED")
-        server.setStatus(task.id, { state: "TASK_STATE_INPUT_REQUIRED" })
+      if (task.status.state === "TASK_STATE_SUBMITTED") notify(task, { state: "TASK_STATE_INPUT_REQUIRED" })
       return
     }
     state.queue = state.queue.then(() => respond(state, task, message))
@@ -91,7 +127,12 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
     // for an ephemeral port, which peers only learn from the card).
     card: () => cardFor(port),
     onMessage,
-    onCancel: (task) => input.runner.abort(task.id),
+    onCancel: (task) => {
+      // The server already transitioned the task; echo it so CANCELED reaches
+      // the UI stream like every other state change.
+      emit("a2a.task.updated", { taskId: task.id, peerId: peerOf(task), state: "TASK_STATE_CANCELED" })
+      return input.runner.abort(task.id)
+    },
   })
   // The socket address is the identity fallback when the peer does not send
   // the x-a2a-peer header; the server prefers the header when present.
@@ -139,6 +180,10 @@ function failed(text: string): TaskStatus {
     state: "TASK_STATE_FAILED",
     message: { messageId: crypto.randomUUID(), role: "ROLE_AGENT", parts: [{ text }] },
   }
+}
+
+function messageText(message: Message): string {
+  return message.parts.map((part) => part.text).join("\n")
 }
 
 function peerOf(task: Task): string | undefined {

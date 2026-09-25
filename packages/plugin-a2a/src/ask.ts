@@ -9,10 +9,13 @@ import {
   type Task,
   type TaskArtifactUpdateEvent,
   type TaskState,
+  type TaskStatus,
   type TaskStatusUpdateEvent,
+  type Turn,
 } from "a2a"
 import { tool, type ToolResult } from "@opencode-ai/plugin/tool"
 import { CAP_MESSAGE, type A2AConfig } from "./config.ts"
+import { noopEmitter, type A2AEventEmitter } from "./events.ts"
 
 const DEFAULT_TIMEOUT_MS = 30_000
 const DEFAULT_POLL_MS = 300
@@ -50,6 +53,7 @@ export class ConversationStore {
 type AskDeps = {
   config: A2AConfig
   store: ConversationStore
+  emit: A2AEventEmitter
   timeoutMs: number
   pollMs: number
 }
@@ -69,12 +73,14 @@ type Outcome = {
 export function createAskTool(input: {
   config: A2AConfig
   store: ConversationStore
+  emit?: A2AEventEmitter
   timeoutMs?: number
   pollMs?: number
 }) {
   const deps: AskDeps = {
     config: input.config,
     store: input.store,
+    emit: input.emit ?? noopEmitter,
     timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     pollMs: input.pollMs ?? DEFAULT_POLL_MS,
   }
@@ -163,27 +169,45 @@ async function pollTurn(
 
   // A synchronous peer can answer with a Message instead of a Task.
   if (isMessage(response)) {
-    const tracker = ensureTracker(conversation, response.taskId)
-    tracker?.note(outgoing, "local")
-    tracker?.note(response, "remote")
-    if (tracker && response.taskId) deps.store.save(response.taskId, conversation)
+    ensureTracker(conversation, response.taskId)
+    noteTurn(deps, conversation, outgoing, "local")
+    noteTurn(deps, conversation, response, "remote")
+    if (conversation.tracker && response.taskId) deps.store.save(response.taskId, conversation)
     return { reply: messageText(response), state: "TASK_STATE_COMPLETED" }
   }
 
+  const fresh = conversation.tracker === undefined
   const tracker = ensureTracker(conversation, response.id)
   if (!tracker) throw new Error(`A2A peer "${conversation.peerId}" did not create a task`)
-  tracker.note(outgoing, "local")
-  tracker.sync(response, speakerOf)
+  if (fresh)
+    deps.emit("a2a.task.dispatched", {
+      taskId: response.id,
+      peerId: conversation.peerId,
+      state: response.status.state,
+    })
+  noteTurn(deps, conversation, outgoing, "local")
+  syncTurns(deps, conversation, response)
   conversation.contextId ??= response.contextId
   deps.store.save(response.id, conversation)
 
   let task = response
+  // A fresh task's first state already rode out on a2a.task.dispatched — but
+  // terminal states keep their dedicated event, so only dedupe interim ones.
+  let last: TaskState | undefined =
+    fresh && !TERMINAL_STATES.includes(response.status.state) ? response.status.state : undefined
+  const emitState = () => {
+    if (task.status.state === last) return
+    last = task.status.state
+    emitTaskState(deps, task.id, conversation.peerId, task.status.state, statusText(task.status))
+  }
+  emitState()
   let outcome = taskOutcome(task, tracker, priorRemote)
   const deadline = Date.now() + deps.timeoutMs
   while (!outcome.reply && !outcome.artifact && !settled(outcome.state) && Date.now() < deadline) {
     await Bun.sleep(deps.pollMs)
     task = await request(conversation.peerId, () => conversation.client.getTask(task.id))
-    tracker.sync(task, speakerOf)
+    syncTurns(deps, conversation, task)
+    emitState()
     conversation.contextId ??= task.contextId
     outcome = taskOutcome(task, tracker, priorRemote)
   }
@@ -203,6 +227,7 @@ async function streamTurn(
 ): Promise<Outcome> {
   const peer = conversation.peerId
   const deadline = Date.now() + deps.timeoutMs
+  const fresh = conversation.tracker === undefined
   let task: Task | undefined
   let taskId: string | undefined
   let contextId: string | undefined
@@ -211,6 +236,22 @@ async function streamTurn(
   const streamed: Message[] = []
   let artifact: string | undefined
   let state: TaskState | undefined
+  let last: TaskState | undefined
+  let dispatched = false
+  const emitState = (next: TaskState, id: string | undefined, content?: string) => {
+    if (!id || next === last) return
+    last = next
+    emitTaskState(deps, id, peer, next, content)
+  }
+  const markDispatched = (id: string | undefined, next: TaskState | undefined) => {
+    if (!fresh || !id || dispatched) return
+    dispatched = true
+    const initial = next ?? "TASK_STATE_SUBMITTED"
+    // The dispatch event already carries this state; dedupe it from updated —
+    // unless it is terminal, which still needs its dedicated event type.
+    if (!TERMINAL_STATES.includes(initial)) last = initial
+    deps.emit("a2a.task.dispatched", { taskId: id, peerId: peer, state: initial })
+  }
 
   try {
     for await (const event of conversation.client.streamMessage(outgoing)) {
@@ -219,6 +260,8 @@ async function streamTurn(
         taskId ??= event.taskId
         contextId ??= event.contextId
         state = event.status.state
+        markDispatched(taskId, state)
+        emitState(state, taskId, statusText(event.status))
         if (event.status.message) {
           reply = messageText(event.status.message)
           replyMessage = event.status.message
@@ -236,6 +279,8 @@ async function streamTurn(
         taskId ??= event.id
         contextId ??= event.contextId
         state = event.status.state
+        markDispatched(taskId, state)
+        emitState(state, taskId, statusText(event.status))
         continue
       }
       reply = messageText(event)
@@ -247,14 +292,16 @@ async function streamTurn(
     throw error instanceof Error ? error : new Error(String(error))
   }
 
+  if (fresh && taskId && !dispatched)
+    deps.emit("a2a.task.dispatched", { taskId, peerId: peer, state: state ?? "TASK_STATE_SUBMITTED" })
   const tracker = ensureTracker(conversation, taskId)
-  tracker?.note(outgoing, "local")
-  if (task) tracker?.sync(task, speakerOf)
+  noteTurn(deps, conversation, outgoing, "local")
+  if (task) syncTurns(deps, conversation, task)
   // The task snapshot is written before the host appends its reply, so the
   // reply only shows up as a stream event: note it or the turn cap would
   // under-count every streamed reply and let extra asks through.
-  for (const message of streamed) tracker?.note(message, "remote")
-  if (!task && replyMessage) tracker?.note(replyMessage, "remote")
+  for (const message of streamed) noteTurn(deps, conversation, message, "remote")
+  if (!task && replyMessage) noteTurn(deps, conversation, replyMessage, "remote")
   conversation.contextId ??= contextId
   if (tracker && taskId) deps.store.save(taskId, conversation)
 
@@ -310,6 +357,12 @@ function renderResult(deps: AskDeps, args: AskArgs, conversation: Conversation, 
 }
 
 function capResult(deps: AskDeps, args: AskArgs, tracker: ConversationTracker): ToolResult {
+  deps.emit("a2a.task.completed", {
+    taskId: tracker.taskId,
+    peerId: args.peer,
+    state: "TASK_STATE_COMPLETED",
+    content: CAP_MESSAGE,
+  })
   return {
     title: `max turns reached (${args.peer})`,
     output: [
@@ -341,6 +394,63 @@ function ensureTracker(conversation: Conversation, taskId: string | undefined): 
 
 function speakerOf(message: Message): Speaker {
   return message.role === "ROLE_USER" ? "local" : "remote"
+}
+
+// A2A-008 fan-out: every recorded turn leaves as one a2a.conversation.turn
+// event so the UI can render the thread without polling tasks/get.
+function noteTurn(deps: AskDeps, conversation: Conversation, message: Message, speaker: Speaker): void {
+  const tracker = conversation.tracker
+  if (!tracker) {
+    // A peer answering with a bare Message may carry no task at all; still
+    // emit the turn so the UI thread shows it.
+    deps.emit("a2a.conversation.turn", {
+      speaker,
+      turn: speaker === "local" ? 0 : 1,
+      taskId: message.taskId,
+      peerId: speaker === "local" ? deps.config.name : conversation.peerId,
+      content: messageText(message),
+    })
+    return
+  }
+  const note = tracker.note(message, speaker)
+  if (note.kind === "added") emitTurn(deps, conversation, note.turn)
+}
+
+function syncTurns(deps: AskDeps, conversation: Conversation, task: Task): void {
+  const tracker = conversation.tracker
+  if (!tracker) return
+  for (const note of tracker.sync(task, speakerOf)) {
+    if (note.kind === "added") emitTurn(deps, conversation, note.turn)
+  }
+}
+
+function emitTurn(deps: AskDeps, conversation: Conversation, turn: Turn): void {
+  deps.emit("a2a.conversation.turn", {
+    speaker: turn.speaker,
+    turn: turn.index,
+    taskId: turn.taskId,
+    peerId: turn.speaker === "local" ? deps.config.name : conversation.peerId,
+    content: turn.text,
+  })
+}
+
+// Terminal states map to their own event types; everything else is a generic
+// a2a.task.updated, which also carries TASK_STATE_CANCELED.
+function emitTaskState(
+  deps: AskDeps,
+  taskId: string,
+  peerId: string,
+  state: TaskState,
+  content?: string,
+): void {
+  const properties = { taskId, peerId, state, ...(content === undefined ? {} : { content }) }
+  if (state === "TASK_STATE_COMPLETED") deps.emit("a2a.task.completed", properties)
+  else if (state === "TASK_STATE_FAILED") deps.emit("a2a.task.failed", properties)
+  else deps.emit("a2a.task.updated", properties)
+}
+
+function statusText(status: TaskStatus): string | undefined {
+  return status.message ? messageText(status.message) : undefined
 }
 
 function remoteCount(tracker: ConversationTracker | undefined): number {

@@ -3,8 +3,19 @@
 // A2AServer the way any A2A peer would.
 import { A2AClient, type Message, type Task, type TaskState } from "a2a"
 import type { A2AConfig } from "../src/config.ts"
+import type { A2AEventEmitter } from "../src/events.ts"
 import { startInboundServer } from "../src/inbound.ts"
 import type { SessionRunner } from "../src/session.ts"
+
+export type EmittedEvent = { type: string; properties: Record<string, unknown> }
+
+export function eventLog() {
+  const events: EmittedEvent[] = []
+  const emit: A2AEventEmitter = (type, properties) => {
+    events.push({ type, properties: { ...properties } })
+  }
+  return { events, emit }
+}
 
 export function configFor(overrides: Partial<A2AConfig> = {}): A2AConfig {
   return { enabled: true, listenPort: 0, allowedPeers: {}, maxTurns: 4, ...overrides }
@@ -37,8 +48,12 @@ export function fakeRunner(
   return { runner, runs, peers, aborted, overlapped: () => overlapped }
 }
 
-export function startBridge(runner: SessionRunner, overrides?: Partial<A2AConfig>) {
-  const inbound = startInboundServer({ config: configFor(overrides), runner })
+export function startBridge(
+  runner: SessionRunner,
+  overrides?: Partial<A2AConfig>,
+  emit?: A2AEventEmitter,
+) {
+  const inbound = startInboundServer({ config: configFor(overrides), runner, emit })
   const baseUrl = `http://localhost:${inbound.port}`
   return { ...inbound, baseUrl, client: new A2AClient({ baseUrl }) }
 }

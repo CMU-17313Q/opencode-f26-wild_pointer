@@ -41,3 +41,20 @@ AgentCard { name, description, version, supportedInterfaces, capabilities,
   `-32003` unsupported, `-32602` bad params.
 - Optional `x-a2a-peer` request header lets a caller self-identify; the server
   records it as `task.metadata.peerId` so the host can log peer identity.
+
+## Local events (not A2A protocol)
+
+The plugin emits these on the host's event bus (`/global/event`) so the UI can
+render a live thread. Schemas in `src/events.ts`.
+
+```
+a2a.task.dispatched     { taskId, peerId?, state, content? }   # task created
+a2a.task.updated        { taskId, peerId?, state, content? }   # any state change, incl. CANCELED
+a2a.task.completed      { taskId, peerId?, state, content? }
+a2a.task.failed         { taskId, peerId?, state, content? }
+a2a.conversation.turn   { speaker: local|remote, turn, taskId?, peerId?, content }
+```
+
+One `a2a.conversation.turn` per message on either side of every turn; `turn` is
+the 0-based index within the task and `peerId` names the speaker (local name
+for our messages, the peer's identity for theirs).
