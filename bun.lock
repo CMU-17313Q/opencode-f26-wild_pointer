@@ -79,6 +79,7 @@
         "@tanstack/solid-query": "5.91.4",
         "@tanstack/solid-virtual": "catalog:",
         "@thisbeyond/solid-dnd": "0.7.5",
+        "a2a": "workspace:*",
         "diff": "catalog:",
         "effect": "catalog:",
         "fuzzysort": "catalog:",
