@@ -156,6 +156,24 @@ describe("cancelTask", () => {
   });
 });
 
+describe("headers option", () => {
+  test("sends configured headers without overriding per-call headers", async () => {
+    const seen: Headers[] = [];
+    const fetchFn: FetchFn = (input, init) => {
+      seen.push(new Headers(init?.headers));
+      return Promise.resolve(jsonResult(workingTask()));
+    };
+    const client = new A2AClient({
+      baseUrl: "https://peer.test",
+      fetchFn,
+      headers: { "x-a2a-peer": "alice" },
+    });
+    await client.sendMessage(userMessage);
+    expect(seen[0]?.get("x-a2a-peer")).toBe("alice");
+    expect(seen[0]?.get("content-type")).toBe("application/json");
+  });
+});
+
 describe("errors", () => {
   test("JSON-RPC error becomes A2AError with code and method", async () => {
     const { fetchFn } = createMock(() =>

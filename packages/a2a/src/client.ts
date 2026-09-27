@@ -81,16 +81,21 @@ export type FetchFn = (
 export interface A2AClientOptions {
   baseUrl: string;
   fetchFn?: FetchFn;
+  // Sent on every request (card fetch and JSON-RPC alike); per-call headers
+  // such as content-type and accept always win.
+  headers?: Record<string, string>;
 }
 
 export class A2AClient {
   private readonly baseUrl: string;
   private readonly fetchFn: FetchFn;
+  private readonly headers: Record<string, string>;
   private nextId = 1;
 
   constructor(options: A2AClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.fetchFn = options.fetchFn ?? fetch;
+    this.headers = options.headers ?? {};
   }
 
   async fetchAgentCard(): Promise<AgentCard> {
@@ -160,7 +165,11 @@ export class A2AClient {
   }
 
   private async readRaw(input: string, init: RequestInit | undefined, label: string): Promise<Response> {
-    const response = await this.fetchFn(input, init);
+    const headers = new Headers(init?.headers);
+    for (const [key, value] of Object.entries(this.headers)) {
+      if (!headers.has(key)) headers.set(key, value);
+    }
+    const response = await this.fetchFn(input, { ...init, headers });
     if (!response.ok)
       throw new A2AError(response.status, `Request ${label} failed with HTTP ${response.status}.`, {
         method: label,

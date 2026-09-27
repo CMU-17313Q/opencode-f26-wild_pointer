@@ -1,5 +1,5 @@
 import { EventEmitter } from "events"
-import { Identifier } from "@/id/id"
+import { Identifier } from "../id/id"
 
 export type GlobalEvent = {
   directory?: string
