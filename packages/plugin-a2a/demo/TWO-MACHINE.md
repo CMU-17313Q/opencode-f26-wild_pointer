@@ -28,6 +28,12 @@ git checkout feat/a2a-demo   # has everything incl. the demo scripts
 bun install
 ```
 
+> **Windows:** if `bun install` fails building `tree-sitter-powershell`
+> (`node-gyp` / "Visual Studio 2017 or newer"), run
+> `bun install --ignore-scripts` instead. The failing script only builds a
+> native binding nobody uses — the code loads the prebuilt `.wasm` files that
+> already ship inside the packages.
+
 If the A2A PRs have merged by the time you do this, `feat/a2a` is enough.
 `feat/a2a-demo` is ahead of it and safe either way.
 
