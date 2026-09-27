@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { SpeakerSchema } from "./conversation.ts";
-import { TaskStateSchema } from "./types.ts";
+import { ArtifactSchema, TaskStateSchema } from "./types.ts";
 
 export const A2A_TASK_EVENT_TYPES = [
   "a2a.task.dispatched",
@@ -26,6 +26,8 @@ export const A2ATaskEventPropertiesSchema = z.object({
   peerId: z.string().optional(),
   state: TaskStateSchema,
   content: z.string().optional(),
+  // The verdict the UI shows on completion, when the task produced one.
+  artifact: ArtifactSchema.optional(),
 });
 export type A2ATaskEventProperties = z.infer<typeof A2ATaskEventPropertiesSchema>;
 

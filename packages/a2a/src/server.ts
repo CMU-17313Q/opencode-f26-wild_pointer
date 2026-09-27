@@ -13,6 +13,7 @@ import {
   MessageSchema,
   TaskStateSchema,
   type AgentCard,
+  type Artifact,
   type Message,
   type StreamEvent,
   type Task,
@@ -173,6 +174,13 @@ export class A2AServer {
     const task = this.require(taskId);
     task.status = { ...status, timestamp: status.timestamp ?? timestamp() };
     this.emit(task, statusEvent(task));
+    return task;
+  }
+
+  appendArtifact(taskId: string, artifact: Artifact): Task {
+    const task = this.require(taskId);
+    task.artifacts = [...(task.artifacts ?? []), artifact];
+    this.emit(task, { taskId: task.id, contextId: task.contextId ?? "", artifact });
     return task;
   }
 
