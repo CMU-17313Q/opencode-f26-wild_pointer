@@ -1165,4 +1165,11 @@ export const dict = {
   "workspace.reset.archived.one": "1 sessiya arxivlənəcək.",
   "workspace.reset.archived.many": "{{count}} sessiya arxivlənəcək.",
   "workspace.reset.note": "Bu iş sahəsini standart branch ilə uyğunlaşdırmaq üçün sıfırlayacaq.",
+  "a2a.thread.ariaLabel": "A2A thread",
+  "a2a.thread.title": "A2A thread",
+  "a2a.thread.task": "Task {{taskId}}",
+  "a2a.thread.turn": "Turn {{turn}}",
+  "a2a.thread.peer.local": "local peer",
+  "a2a.thread.peer.remote": "remote peer",
+  "a2a.thread.verdict": "Verdict",
 }

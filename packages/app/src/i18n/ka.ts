@@ -1153,4 +1153,11 @@ export const dict = {
   "workspace.reset.archived.many": "{{count}} სესია დაარქივდება.",
   "workspace.reset.note": "ეს აღადგენს სამუშაო სივრცეს ნაგულისხმევი ფილიალის შესატყვისად.",
   "dialog.usageExceeded.dontShowAgain": "აღარ მაჩვენო",
+  "a2a.thread.ariaLabel": "A2A thread",
+  "a2a.thread.title": "A2A thread",
+  "a2a.thread.task": "Task {{taskId}}",
+  "a2a.thread.turn": "Turn {{turn}}",
+  "a2a.thread.peer.local": "local peer",
+  "a2a.thread.peer.remote": "remote peer",
+  "a2a.thread.verdict": "Verdict",
 }

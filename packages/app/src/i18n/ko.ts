@@ -1164,4 +1164,11 @@ export const dict = {
 
   "desktop.picker.error.notSelected": "선택기에서 파일을 선택하지 않았습니다",
   "desktop.picker.error.sizeLimit": "선택한 첨부 파일이 {{limit}} MB 제한을 초과합니다",
+  "a2a.thread.ariaLabel": "A2A thread",
+  "a2a.thread.title": "A2A thread",
+  "a2a.thread.task": "Task {{taskId}}",
+  "a2a.thread.turn": "Turn {{turn}}",
+  "a2a.thread.peer.local": "local peer",
+  "a2a.thread.peer.remote": "remote peer",
+  "a2a.thread.verdict": "Verdict",
 }

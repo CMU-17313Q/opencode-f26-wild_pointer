@@ -1257,4 +1257,11 @@ export const dict = {
   "error.childStore.persistedProjectIconCreateFailed": "Kalıcı proje simgesi oluşturulamadı",
   "error.childStore.storeCreateFailed": "Depo oluşturulamadı",
   "terminal.connectionLost.abnormalClose": "WebSocket anormal şekilde kapandı: {{code}}",
+  "a2a.thread.ariaLabel": "A2A thread",
+  "a2a.thread.title": "A2A thread",
+  "a2a.thread.task": "Task {{taskId}}",
+  "a2a.thread.turn": "Turn {{turn}}",
+  "a2a.thread.peer.local": "local peer",
+  "a2a.thread.peer.remote": "remote peer",
+  "a2a.thread.verdict": "Verdict",
 } satisfies Partial<Record<Keys, string>>

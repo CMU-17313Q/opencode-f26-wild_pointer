@@ -12,7 +12,7 @@ import {
   type Task,
   type TaskList,
   type TaskState,
-} from "./types.ts";
+} from "./types";
 
 export const ErrorCode = {
   PARSE_ERROR: -32700,

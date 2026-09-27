@@ -91,6 +91,11 @@ describe("inbound a2a events", () => {
       ])
       const completed = log.events.find((event) => event.type === "a2a.task.completed")
       expect(completed?.properties).toMatchObject({ taskId: task.id, state: "TASK_STATE_COMPLETED" })
+      // The verdict artifact rides on the completed event and stays queryable
+      // via tasks/get for the peer.
+      const artifact = completed?.properties.artifact as { parts?: Array<{ text: string }> } | undefined
+      expect(artifact?.parts?.[0]?.text).toBe("two")
+      expect(done.artifacts?.at(-1)?.parts[0]?.text).toBe("two")
     } finally {
       bridge.stop()
     }

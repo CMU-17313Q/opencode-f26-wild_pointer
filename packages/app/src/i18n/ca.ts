@@ -1170,4 +1170,11 @@ export const dict = {
   "workspace.reset.archived.many": "{{count}} sessions s'arxivaran.",
   "workspace.reset.note": "Això restablirà l'espai de treball perquè coincideixi amb la branca predeterminada.",
   "dialog.usageExceeded.dontShowAgain": "No ho tornis a mostrar",
+  "a2a.thread.ariaLabel": "A2A thread",
+  "a2a.thread.title": "A2A thread",
+  "a2a.thread.task": "Task {{taskId}}",
+  "a2a.thread.turn": "Turn {{turn}}",
+  "a2a.thread.peer.local": "local peer",
+  "a2a.thread.peer.remote": "remote peer",
+  "a2a.thread.verdict": "Verdict",
 }

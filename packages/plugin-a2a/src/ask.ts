@@ -3,6 +3,7 @@ import {
   A2AError,
   A2A_PEER_HEADER,
   ConversationTracker,
+  type Artifact,
   type Message,
   type Part,
   type Speaker,
@@ -198,7 +199,14 @@ async function pollTurn(
   const emitState = () => {
     if (task.status.state === last) return
     last = task.status.state
-    emitTaskState(deps, task.id, conversation.peerId, task.status.state, statusText(task.status))
+    emitTaskState(
+      deps,
+      task.id,
+      conversation.peerId,
+      task.status.state,
+      statusText(task.status),
+      task.artifacts?.at(-1),
+    )
   }
   emitState()
   let outcome = taskOutcome(task, tracker, priorRemote)
@@ -235,13 +243,14 @@ async function streamTurn(
   let replyMessage: Message | undefined
   const streamed: Message[] = []
   let artifact: string | undefined
+  let lastArtifact: Artifact | undefined
   let state: TaskState | undefined
   let last: TaskState | undefined
   let dispatched = false
-  const emitState = (next: TaskState, id: string | undefined, content?: string) => {
+  const emitState = (next: TaskState, id: string | undefined, content?: string, seen?: Artifact) => {
     if (!id || next === last) return
     last = next
-    emitTaskState(deps, id, peer, next, content)
+    emitTaskState(deps, id, peer, next, content, seen)
   }
   const markDispatched = (id: string | undefined, next: TaskState | undefined) => {
     if (!fresh || !id || dispatched) return
@@ -261,7 +270,7 @@ async function streamTurn(
         contextId ??= event.contextId
         state = event.status.state
         markDispatched(taskId, state)
-        emitState(state, taskId, statusText(event.status))
+        emitState(state, taskId, statusText(event.status), lastArtifact)
         if (event.status.message) {
           reply = messageText(event.status.message)
           replyMessage = event.status.message
@@ -272,6 +281,7 @@ async function streamTurn(
         taskId ??= event.taskId
         contextId ??= event.contextId
         artifact = partsText(event.artifact.parts)
+        lastArtifact = event.artifact
         continue
       }
       if (isTask(event)) {
@@ -280,7 +290,8 @@ async function streamTurn(
         contextId ??= event.contextId
         state = event.status.state
         markDispatched(taskId, state)
-        emitState(state, taskId, statusText(event.status))
+        lastArtifact = event.artifacts?.at(-1) ?? lastArtifact
+        emitState(state, taskId, statusText(event.status), lastArtifact)
         continue
       }
       reply = messageText(event)
@@ -442,8 +453,15 @@ function emitTaskState(
   peerId: string,
   state: TaskState,
   content?: string,
+  artifact?: Artifact,
 ): void {
-  const properties = { taskId, peerId, state, ...(content === undefined ? {} : { content }) }
+  const properties = {
+    taskId,
+    peerId,
+    state,
+    ...(content === undefined ? {} : { content }),
+    ...(artifact === undefined ? {} : { artifact }),
+  }
   if (state === "TASK_STATE_COMPLETED") deps.emit("a2a.task.completed", properties)
   else if (state === "TASK_STATE_FAILED") deps.emit("a2a.task.failed", properties)
   else deps.emit("a2a.task.updated", properties)

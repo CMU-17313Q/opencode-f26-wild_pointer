@@ -1149,4 +1149,11 @@ export const dict: Record<string, string> = {
   "workspace.reset.archived.many": "{{count}} সেশন আর্কাইভ করা হবে।",
   "workspace.reset.note": "এটি ডিফল্ট শাখার সাথে মেলে ওয়ার্কস্পেস রিসেট করবে।",
   "dialog.usageExceeded.dontShowAgain": "আবার দেখাবেন না",
+  "a2a.thread.ariaLabel": "A2A thread",
+  "a2a.thread.title": "A2A thread",
+  "a2a.thread.task": "Task {{taskId}}",
+  "a2a.thread.turn": "Turn {{turn}}",
+  "a2a.thread.peer.local": "local peer",
+  "a2a.thread.peer.remote": "remote peer",
+  "a2a.thread.verdict": "Verdict",
 }

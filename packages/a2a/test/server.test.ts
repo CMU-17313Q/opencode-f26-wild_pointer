@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { A2AClient, A2AError, ErrorCode } from "../src/client.ts";
 import { A2AServer, type A2AServerOptions } from "../src/server.ts";
-import type { AgentCard, Message, Task } from "../src/types.ts";
+import type { AgentCard, Message, StreamEvent, Task } from "../src/types.ts";
 
 const card: AgentCard = {
   name: "Peer",
@@ -215,6 +215,37 @@ describe("tasks/get", () => {
     const error = await catchError(client.getTask("nope"));
     expect(error).toBeInstanceOf(A2AError);
     if (error instanceof A2AError) expect(error.code).toBe(ErrorCode.TASK_NOT_FOUND);
+  });
+});
+
+describe("appendArtifact", () => {
+  test("attaches the artifact to the task and emits it to open streams", async () => {
+    const { server, client } = pair();
+    const task = (await client.sendMessage(userMessage)) as Task;
+    const response = await server.fetch(
+      rpc({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "message/stream",
+        params: { message: { ...userMessage, messageId: "msg-2", taskId: task.id } },
+      }),
+    );
+
+    server.appendArtifact(task.id, {
+      artifactId: `${task.id}-verdict`,
+      name: "verdict",
+      parts: [{ text: "Verdict: approved" }],
+    });
+    server.setStatus(task.id, { state: "TASK_STATE_COMPLETED" });
+
+    const events = (await readSse(response)) as StreamEvent[];
+    const artifactEvent = events.find((event) => "artifact" in event);
+    expect(artifactEvent).toBeDefined();
+    if (artifactEvent && "artifact" in artifactEvent)
+      expect(artifactEvent.artifact.artifactId).toBe(`${task.id}-verdict`);
+
+    const stored = await client.getTask(task.id);
+    expect(stored.artifacts?.at(-1)?.parts[0]?.text).toBe("Verdict: approved");
   });
 });
 

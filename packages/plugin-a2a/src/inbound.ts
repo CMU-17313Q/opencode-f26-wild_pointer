@@ -45,6 +45,9 @@ export function startInboundServer(input: {
       peerId: peerOf(task),
       state: status.state,
       ...(status.message ? { content: messageText(status.message) } : {}),
+      ...(status.state === "TASK_STATE_COMPLETED" && task.artifacts?.length
+        ? { artifact: task.artifacts.at(-1) }
+        : {}),
     }
     if (status.state === "TASK_STATE_COMPLETED") emit("a2a.task.completed", properties)
     else if (status.state === "TASK_STATE_FAILED") emit("a2a.task.failed", properties)
@@ -86,13 +89,20 @@ export function startInboundServer(input: {
         content: note.turn.text,
       })
     // Multi-turn needs INPUT_REQUIRED between turns: a COMPLETED task rejects
-    // follow-ups with -32602. Only the cap closes the conversation.
-    if (state.tracker.history().length >= input.config.maxTurns)
+    // follow-ups with -32602. Only the cap closes the conversation. The final
+    // reply doubles as the verdict artifact so peers (and the UI) can read the
+    // outcome via tasks/get without replaying history.
+    if (state.tracker.history().length >= input.config.maxTurns) {
+      server.appendArtifact(task.id, {
+        artifactId: `${task.id}-verdict`,
+        name: "verdict",
+        parts: [{ text: run.text }],
+      })
       notify(task, {
         state: "TASK_STATE_COMPLETED",
         message: { messageId: crypto.randomUUID(), role: "ROLE_AGENT", parts: [{ text: CAP_MESSAGE }] },
       })
-    else notify(task, { state: "TASK_STATE_INPUT_REQUIRED" })
+    } else notify(task, { state: "TASK_STATE_INPUT_REQUIRED" })
   }
 
   const onMessage = (task: Task, message: Message) => {
