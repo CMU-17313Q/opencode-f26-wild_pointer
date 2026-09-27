@@ -4,8 +4,8 @@
 // { type, properties } bus event.
 
 import { z } from "zod";
-import { SpeakerSchema } from "./conversation.ts";
-import { ArtifactSchema, TaskStateSchema } from "./types.ts";
+import { SpeakerSchema } from "./conversation";
+import { ArtifactSchema, TaskStateSchema } from "./types";
 
 export const A2A_TASK_EVENT_TYPES = [
   "a2a.task.dispatched",

@@ -7,7 +7,7 @@
 // back onto the task so open message/stream subscribers see them.
 
 import { z } from "zod";
-import { A2AError, ErrorCode, type SendConfiguration } from "./client.ts";
+import { A2AError, ErrorCode, type SendConfiguration } from "./client";
 import {
   AgentCardSchema,
   MessageSchema,
@@ -20,7 +20,7 @@ import {
   type TaskList,
   type TaskState,
   type TaskStatus,
-} from "./types.ts";
+} from "./types";
 
 const TERMINAL_STATES = new Set<TaskState>([
   "TASK_STATE_COMPLETED",
