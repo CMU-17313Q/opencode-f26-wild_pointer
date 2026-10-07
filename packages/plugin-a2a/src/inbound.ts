@@ -174,7 +174,7 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
   server = new A2AServer({
     // Deferred so the card reports the port Bun.serve actually bound (0 asks
     // for an ephemeral port, which peers only learn from the card).
-    card: () => cardFor(port),
+    card: () => cardFor(port, input.config.name),
     onMessage,
     onCancel: (task) => {
       // The server already transitioned the task; echo it so CANCELED reaches
@@ -193,9 +193,11 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
   return { stop: () => listener.stop(true), port, cancel }
 }
 
-function cardFor(port: number): AgentCard {
+function cardFor(port: number, name?: string): AgentCard {
   return {
-    name: "opencode",
+    // A2A-013: the card name is the configured self-identity (the same value
+    // peers receive in the x-a2a-peer header), falling back to "opencode".
+    name: name ?? "opencode",
     description: "Hold a multi-turn conversation with a local opencode agent",
     version: "1.0.0",
     supportedInterfaces: [{ url: `http://localhost:${port}/`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],

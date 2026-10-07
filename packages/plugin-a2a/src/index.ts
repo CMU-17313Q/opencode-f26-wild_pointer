@@ -16,6 +16,9 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
   const hooks: Hooks = {}
   let runner: SessionRunner | undefined
   let inbound: ReturnType<typeof startInboundServer> | undefined
+  // A2A-013: apply() runs once on load and again from the config hook. The
+  // missing-name notice is per plugin instance, so remember that it went out.
+  let nameNoticeSent = false
   // A2A-012: one cancel routine for the whole plugin. Remote tasks go through
   // the conversation's client, local tasks through the inbound listener; the
   // canceller attempts both and tolerates whichever side is absent.
@@ -33,6 +36,22 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
     hooks.dispose = async () => {
       inbound?.stop()
       inbound = undefined
+    }
+    // A2A-013: name is optional for back-compat, but without it peers only see
+    // this instance's socket address. Nudge once per plugin instance, never on
+    // every config re-apply.
+    if (config.name === undefined && !nameNoticeSent) {
+      nameNoticeSent = true
+      input.client.app
+        .log({
+          body: {
+            service: "plugin-a2a",
+            level: "warn",
+            message:
+              "A2A is enabled without a name — peers will see your socket address; set `a2a.name` in the plugin options",
+          },
+        })
+        .catch(() => undefined)
     }
     if (inbound !== undefined) return
     try {
