@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { A2AClient } from "a2a"
 import { CAP_MESSAGE } from "../src/config.ts"
-import { agentReplies, awaitState, fakeRunner, send, startBridge, userMessage } from "./bridge.ts"
+import { SessionAbortedError } from "../src/session.ts"
+import { agentReplies, awaitState, eventLog, fakeRunner, send, startBridge, userMessage } from "./bridge.ts"
 
 describe("inbound bridge", () => {
   test("first turn replies with the session output and asks for input", async () => {
@@ -194,5 +195,67 @@ describe("inbound bridge", () => {
     bridge.stop()
     await Bun.sleep(10)
     await expect(fetch(cardUrl)).rejects.toThrow()
+  })
+
+  test("an aborted session run cancels the task instead of failing it", async () => {
+    const log = eventLog()
+    const fake = fakeRunner({ error: new SessionAbortedError() })
+    const bridge = startBridge(fake.runner, undefined, log.emit)
+    try {
+      const task = await send(bridge.client, userMessage("stop me"))
+      const canceled = await awaitState(bridge.client, task.id, "TASK_STATE_CANCELED")
+      expect(fake.aborted).toEqual([task.id])
+      expect(agentReplies(canceled)).toEqual([])
+      const event = log.events.find(
+        (entry) => entry.type === "a2a.task.updated" && entry.properties.state === "TASK_STATE_CANCELED",
+      )
+      expect(event?.properties.taskId).toBe(task.id)
+    } finally {
+      bridge.stop()
+    }
+  })
+
+  test("a run past the turn timeout fails the task and aborts the session", async () => {
+    const fake = fakeRunner({ gate: new Promise(() => {}) })
+    const bridge = startBridge(fake.runner, { turnTimeoutMs: 50 })
+    try {
+      const task = await send(bridge.client, userMessage("stuck"))
+      const failed = await awaitState(bridge.client, task.id, "TASK_STATE_FAILED")
+      expect(failed.status.message?.parts[0]?.text).toContain("turn timed out after 50ms")
+      expect(fake.aborted).toEqual([task.id])
+    } finally {
+      bridge.stop()
+    }
+  })
+
+  test("messages after a canceled task are rejected and never reopen it", async () => {
+    const fake = fakeRunner({ replies: ["first", "late"] })
+    const bridge = startBridge(fake.runner)
+    try {
+      const task = await send(bridge.client, userMessage("one"))
+      await awaitState(bridge.client, task.id, "TASK_STATE_INPUT_REQUIRED")
+      expect(await bridge.cancel(task.id)).toBe(true)
+
+      await expect(send(bridge.client, userMessage("two", { taskId: task.id }))).rejects.toThrow(
+        "cannot accept messages",
+      )
+      expect(fake.runs.length).toBe(1)
+    } finally {
+      bridge.stop()
+    }
+  })
+
+  test("the exposed cancel reports false for unknown and settled tasks", async () => {
+    const fake = fakeRunner()
+    const bridge = startBridge(fake.runner)
+    try {
+      expect(await bridge.cancel("nope")).toBe(false)
+      const task = await send(bridge.client, userMessage("one"))
+      await awaitState(bridge.client, task.id, "TASK_STATE_INPUT_REQUIRED")
+      expect(await bridge.cancel(task.id)).toBe(true)
+      expect(await bridge.cancel(task.id)).toBe(false)
+    } finally {
+      bridge.stop()
+    }
   })
 })

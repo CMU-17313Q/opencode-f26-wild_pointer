@@ -18,11 +18,11 @@ export function eventLog() {
 }
 
 export function configFor(overrides: Partial<A2AConfig> = {}): A2AConfig {
-  return { enabled: true, listenPort: 0, allowedPeers: {}, maxTurns: 4, ...overrides }
+  return { enabled: true, listenPort: 0, allowedPeers: {}, maxTurns: 4, turnTimeoutMs: 120_000, ...overrides }
 }
 
 export function fakeRunner(
-  options: { replies?: string[]; error?: string; delayMs?: number; gate?: Promise<void> } = {},
+  options: { replies?: string[]; error?: string | Error; delayMs?: number; gate?: Promise<void> } = {},
 ) {
   const runs: Array<{ taskId: string; text: string }> = []
   const peers: Array<string | undefined> = []
@@ -38,7 +38,7 @@ export function fakeRunner(
       if (options.gate) await options.gate
       if (options.delayMs) await Bun.sleep(options.delayMs)
       active -= 1
-      if (options.error) throw new Error(options.error)
+      if (options.error) throw options.error instanceof Error ? options.error : new Error(options.error)
       return { sessionID: `ses_${taskId}`, text: options.replies?.[runs.length - 1] ?? `reply ${runs.length}` }
     },
     async abort(taskId) {
@@ -48,11 +48,7 @@ export function fakeRunner(
   return { runner, runs, peers, aborted, overlapped: () => overlapped }
 }
 
-export function startBridge(
-  runner: SessionRunner,
-  overrides?: Partial<A2AConfig>,
-  emit?: A2AEventEmitter,
-) {
+export function startBridge(runner: SessionRunner, overrides?: Partial<A2AConfig>, emit?: A2AEventEmitter) {
   const inbound = startInboundServer({ config: configFor(overrides), runner, emit })
   const baseUrl = `http://localhost:${inbound.port}`
   return { ...inbound, baseUrl, client: new A2AClient({ baseUrl }) }

@@ -1,9 +1,9 @@
 # plugin-a2a
 
-opencode's A2A bridge (tickets A2A-004 and A2A-005): an opt-in plugin that gives the model a
-multi-turn `a2a_ask` tool for talking to other A2A agents, and serves inbound A2A tasks through
-local opencode sessions. Permission parity, turn events, and the thread UI live in separate
-tickets (A2A-007, A2A-008, A2A-009).
+opencode's A2A bridge (tickets A2A-004, A2A-005, and A2A-012): an opt-in plugin that gives the model
+a multi-turn `a2a_ask` tool for talking to other A2A agents, and serves inbound A2A tasks through
+local opencode sessions. Permission parity, turn events, and the thread UI live in separate tickets
+(A2A-007, A2A-008, A2A-009).
 
 ## Enable
 
@@ -38,14 +38,15 @@ With the flag off, the plugin adds no tools and opens no ports.
 
 ## Config
 
-| Field          | Default | Meaning                                                                                         |
-| -------------- | ------- | ----------------------------------------------------------------------------------------------- |
-| `enabled`      | `false` | Turn the plugin on. Also on when `OPENCODE_A2A_ENABLED` is `1` or `true`.                       |
-| `listenPort`   | `0`     | Inbound A2A server port. `0` binds an ephemeral port, reported to peers through the agent card. |
-| `allowedPeers` | `{}`    | Map of peer id to base URL. `a2a_ask` refuses peers that are not listed.                        |
-| `maxTurns`     | `4`     | Total conversation turns (all messages, both speakers) before the cap is reached.               |
-| `agent`        | unset   | Agent for inbound prompts; unset uses the opencode default.                                     |
-| `model`        | unset   | Model for inbound prompts as `provider/model`; unset uses the agent's default model.            |
+| Field           | Default  | Meaning                                                                                          |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `enabled`       | `false`  | Turn the plugin on. Also on when `OPENCODE_A2A_ENABLED` is `1` or `true`.                        |
+| `listenPort`    | `0`      | Inbound A2A server port. `0` binds an ephemeral port, reported to peers through the agent card.  |
+| `allowedPeers`  | `{}`     | Map of peer id to base URL. `a2a_ask` refuses peers that are not listed.                         |
+| `maxTurns`      | `4`      | Total conversation turns (all messages, both speakers) before the cap is reached.                |
+| `agent`         | unset    | Agent for inbound prompts; unset uses the opencode default.                                      |
+| `model`         | unset    | Model for inbound prompts as `provider/model`; unset uses the agent's default model.             |
+| `turnTimeoutMs` | `120000` | Inbound turn deadline. A run past this is aborted and the task fails, so it never stays WORKING. |
 
 ## `a2a_ask`
 
@@ -61,6 +62,9 @@ a2a_ask({ peer: string, message: string, taskId?: string })
   sends with `message/send` and polls `tasks/get` until a reply or a terminal state.
 - Duplicate message ids never append twice, late replies after a terminal state are ignored,
   failures and timeouts surface as errors instead of hanging.
+- Interrupting the tool's turn (the session stop/cancel control) cancels the conversation: the
+  plugin sends `tasks/cancel` to the peer, emits `a2a.task.updated` with `TASK_STATE_CANCELED`, and
+  the turn ends as aborted. Follow-ups on a finished task are answered locally without a request.
 
 ## Inbound (A2A-005)
 
@@ -77,6 +81,9 @@ When enabled, the plugin also serves inbound A2A tasks on `listenPort`:
 - Duplicate `messageId`s never re-run the session, `tasks/cancel` aborts the running session, and
   messages arriving mid-run queue behind the current turn. Inbound access is open (no auth) for
   this sprint.
+- A session interrupted from the UI settles the task `TASK_STATE_CANCELED` (never `FAILED`), and a
+  turn that outlives `turnTimeoutMs` is aborted and fails with `turn timed out after <ms>ms`.
+  Late messages for a terminal task are rejected, so a cancel or completion cannot be reopened.
 
 ## Develop
 

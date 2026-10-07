@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { PluginInput } from "@opencode-ai/plugin"
-import { createSessionRunner } from "../src/session.ts"
+import { createSessionRunner, SessionAbortedError } from "../src/session.ts"
 
 type Part = {
   type: string
@@ -113,6 +113,23 @@ describe("session runner", () => {
     }))
     const runner = createSessionRunner({ client: fake.client })
     await expect(runner.run("task-1", "hi")).rejects.toThrow("UnknownError: provider exploded")
+  })
+
+  test("maps an aborted assistant message to SessionAbortedError", async () => {
+    const fake = fakeClient(() => ({
+      info: { error: { name: "MessageAbortedError", data: { message: "aborted" } } },
+      parts: [],
+    }))
+    const runner = createSessionRunner({ client: fake.client })
+    await expect(runner.run("task-1", "hi")).rejects.toBeInstanceOf(SessionAbortedError)
+  })
+
+  test("maps a thrown abort from the client to SessionAbortedError", async () => {
+    const fake = fakeClient(() => {
+      throw { name: "MessageAbortedError", data: { message: "aborted" } }
+    })
+    const runner = createSessionRunner({ client: fake.client })
+    await expect(runner.run("task-1", "hi")).rejects.toBeInstanceOf(SessionAbortedError)
   })
 
   test("throws when the reply has no visible text", async () => {

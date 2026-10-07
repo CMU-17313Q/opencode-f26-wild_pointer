@@ -9,7 +9,7 @@ import {
 } from "a2a"
 import { CAP_MESSAGE, type A2AConfig } from "./config.ts"
 import { noopEmitter, type A2AEventEmitter } from "./events.ts"
-import type { SessionRunner } from "./session.ts"
+import { isSessionAborted, type SessionRunner } from "./session.ts"
 
 // One entry per A2A task id. sessionID lands here after the first successful
 // run, the tracker owns dedupe plus the turn count behind the cap, and the
@@ -24,17 +24,50 @@ type InboundState = {
 // records work and notifies, this bridge runs it (fire-and-forget, because
 // onMessage is synchronous) and writes replies and status transitions back via
 // appendMessage/setStatus so open streams and tasks/get observe them.
-export function startInboundServer(input: {
-  config: A2AConfig
-  runner: SessionRunner
-  emit?: A2AEventEmitter
-}): {
+export function startInboundServer(input: { config: A2AConfig; runner: SessionRunner; emit?: A2AEventEmitter }): {
   stop: () => void
   port: number
+  cancel: (taskId: string) => Promise<boolean>
 } {
   const emit = input.emit ?? noopEmitter
   const states = new Map<string, InboundState>()
   let server: A2AServer
+
+  // A2A-012: the shared cancel path used when a local run is interrupted.
+  // Unknown, already settled, or failed cleanup all read as "not cancelled";
+  // callers treat cancellation as best-effort.
+  const cancel = async (taskId: string): Promise<boolean> => {
+    try {
+      if (settled(server.getTask(taskId).status.state)) return false
+      await server.cancelTask(taskId)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // A2A-012: a turn must never leave the task WORKING forever. On timeout the
+  // session is aborted and the run rejects, which surfaces as TASK_STATE_FAILED
+  // (timeouts are real errors per the turn-cap rules).
+  const runWithTimeout = (taskId: string, text: string, peer?: string) => {
+    const timeoutMs = input.config.turnTimeoutMs
+    return new Promise<{ sessionID: string; text: string }>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        void input.runner.abort(taskId).catch(() => undefined)
+        reject(new Error(`turn timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+      input.runner.run(taskId, text, peer).then(
+        (run) => {
+          clearTimeout(timer)
+          resolve(run)
+        },
+        (error) => {
+          clearTimeout(timer)
+          reject(error)
+        },
+      )
+    })
+  }
 
   // Every task transition the bridge writes also leaves as an a2a.task.* event
   // so the UI thread view tracks the wire state without polling.
@@ -45,9 +78,7 @@ export function startInboundServer(input: {
       peerId: peerOf(task),
       state: status.state,
       ...(status.message ? { content: messageText(status.message) } : {}),
-      ...(status.state === "TASK_STATE_COMPLETED" && task.artifacts?.length
-        ? { artifact: task.artifacts.at(-1) }
-        : {}),
+      ...(status.state === "TASK_STATE_COMPLETED" && task.artifacts?.length ? { artifact: task.artifacts.at(-1) } : {}),
     }
     if (status.state === "TASK_STATE_COMPLETED") emit("a2a.task.completed", properties)
     else if (status.state === "TASK_STATE_FAILED") emit("a2a.task.failed", properties)
@@ -64,9 +95,17 @@ export function startInboundServer(input: {
     notify(task, { state: "TASK_STATE_WORKING" })
     let run: { sessionID: string; text: string }
     try {
-      run = await input.runner.run(task.id, text, peerOf(task))
+      run = await runWithTimeout(task.id, text, peerOf(task))
     } catch (error) {
-      if (!settled(task.status.state)) notify(task, failed(reason(error)))
+      if (settled(task.status.state)) return
+      // A2A-012: an interrupted session is a cancel, not a failure. Settle the
+      // local task CANCELED (the peer observes it on its stream/poll) instead
+      // of reporting the abort as TASK_STATE_FAILED.
+      if (isSessionAborted(error)) {
+        await cancel(task.id)
+        return
+      }
+      notify(task, failed(reason(error)))
       return
     }
     // A cancel may have settled the task while the session ran; never write a
@@ -151,7 +190,7 @@ export function startInboundServer(input: {
     fetch: (request, self) => server.fetch(request, self.requestIP(request)?.address),
   })
   const port = listener.port ?? input.config.listenPort
-  return { stop: () => listener.stop(true), port }
+  return { stop: () => listener.stop(true), port, cancel }
 }
 
 function cardFor(port: number): AgentCard {

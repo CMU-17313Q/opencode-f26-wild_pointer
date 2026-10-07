@@ -8,6 +8,29 @@ export type SessionRunner = {
   abort: (taskId: string) => Promise<void>
 }
 
+// A run that ended because the session was interrupted (a human pressed
+// cancel/stop). The bridge maps this to TASK_STATE_CANCELED instead of FAILED.
+export class SessionAbortedError extends Error {
+  constructor(message = "session run aborted") {
+    super(message)
+    this.name = "SessionAbortedError"
+  }
+}
+
+// The SDK surfaces aborts either as a thrown tagged object or as the assistant
+// message's `info.error`; both carry the name MessageAbortedError.
+export function isSessionAborted(error: unknown): boolean {
+  if (error instanceof SessionAbortedError) return true
+  if (error instanceof Error) return isAbortName(error.name)
+  if (typeof error === "object" && error !== null && "name" in error && typeof error.name === "string")
+    return isAbortName(error.name)
+  return false
+}
+
+function isAbortName(name: string): boolean {
+  return name === "MessageAbortedError" || name === "AbortError"
+}
+
 // PermissionV1 denial and rejection messages each carry one of these phrases;
 // a tool part carrying either means the turn was refused, not answered.
 const PERMISSION_MARK = /rejected permission|prevents you from using this specific tool call/
@@ -39,24 +62,29 @@ export function createSessionRunner(input: {
   return {
     async run(taskId, text, peer) {
       const sessionID = await sessionFor(taskId, peer)
-      const result = await input.client.session.prompt({
-        path: { id: sessionID },
-        body: {
-          parts: [{ type: "text", text }],
-          ...(input.agent === undefined ? {} : { agent: input.agent }),
-          ...(model === undefined ? {} : { model }),
-        },
-        throwOnError: true,
-      })
-      if (result.data.info.error) throw new Error(failureText(result.data.info.error))
+      const result = await input.client.session
+        .prompt({
+          path: { id: sessionID },
+          body: {
+            parts: [{ type: "text", text }],
+            ...(input.agent === undefined ? {} : { agent: input.agent }),
+            ...(model === undefined ? {} : { model }),
+          },
+          throwOnError: true,
+        })
+        .catch((error: unknown) => {
+          if (isSessionAborted(error)) throw new SessionAbortedError()
+          throw error
+        })
+      if (result.data.info.error) {
+        if (isSessionAborted(result.data.info.error)) throw new SessionAbortedError()
+        throw new Error(failureText(result.data.info.error))
+      }
       // A denied or rejected tool call lands as an errored tool part while the
       // turn may still produce text; surface it as a failed run so the peer
       // sees a clear TASK_STATE_FAILED instead of a polite refusal reply.
       const denied = result.data.parts.find(
-        (part) =>
-          part.type === "tool" &&
-          part.state.status === "error" &&
-          PERMISSION_MARK.test(part.state.error),
+        (part) => part.type === "tool" && part.state.status === "error" && PERMISSION_MARK.test(part.state.error),
       )
       if (denied !== undefined && denied.type === "tool" && denied.state.status === "error")
         throw new Error(`permission denied: ${denied.state.error}`)

@@ -14,8 +14,9 @@ import {
   type TaskStatusUpdateEvent,
   type Turn,
 } from "a2a"
-import { tool, type ToolResult } from "@opencode-ai/plugin/tool"
+import { tool, type ToolContext, type ToolResult } from "@opencode-ai/plugin/tool"
 import { CAP_MESSAGE, type A2AConfig } from "./config.ts"
+import type { Canceller } from "./cancel.ts"
 import { noopEmitter, type A2AEventEmitter } from "./events.ts"
 
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -35,6 +36,9 @@ export type Conversation = {
   streaming: boolean
   contextId?: string
   tracker?: ConversationTracker
+  // Set once the task reaches a terminal state so a follow-up cannot appear to
+  // reopen a finished conversation (late replies stay ignored).
+  terminal?: TaskState
 }
 
 // One entry per A2A task id. The tracker is created once the task id is known,
@@ -55,6 +59,7 @@ type AskDeps = {
   config: A2AConfig
   store: ConversationStore
   emit: A2AEventEmitter
+  cancel: Canceller
   timeoutMs: number
   pollMs: number
 }
@@ -64,6 +69,10 @@ type AskArgs = {
   message: string
   taskId?: string
 }
+
+// A fresh task id only becomes known mid-turn; the turn functions write it
+// here so an abort (or timeout) can cancel the right remote task.
+type TaskIdRef = { current?: string }
 
 type Outcome = {
   reply?: string
@@ -75,6 +84,7 @@ export function createAskTool(input: {
   config: A2AConfig
   store: ConversationStore
   emit?: A2AEventEmitter
+  cancel?: Canceller
   timeoutMs?: number
   pollMs?: number
 }) {
@@ -82,6 +92,7 @@ export function createAskTool(input: {
     config: input.config,
     store: input.store,
     emit: input.emit ?? noopEmitter,
+    cancel: input.cancel ?? (async () => undefined),
     timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     pollMs: input.pollMs ?? DEFAULT_POLL_MS,
   }
@@ -97,34 +108,106 @@ export function createAskTool(input: {
         .optional()
         .describe("Task id from a previous a2a_ask call; pass it to continue the same task"),
     },
-    execute: (args) => ask(deps, args),
+    execute: (args, context) => ask(deps, args, context),
   })
 }
 
-async function ask(deps: AskDeps, args: AskArgs): Promise<ToolResult> {
+async function ask(deps: AskDeps, args: AskArgs, context?: ToolContext): Promise<ToolResult> {
   if (!deps.config.enabled) throw new Error("a2a_ask is unavailable: A2A is disabled")
   const text = args.message.trim()
   if (!text) throw new Error("a2a_ask requires a non-empty message")
   const baseUrl = deps.config.allowedPeers[args.peer]
   if (!baseUrl) throw new Error(`Unknown A2A peer "${args.peer}". Allowed peers: ${allowedNames(deps.config)}`)
 
-  const conversation = await resolveConversation(deps, args, baseUrl)
-  const tracker = conversation.tracker
-  if (tracker && tracker.history().length >= deps.config.maxTurns) return capResult(deps, args, tracker)
+  // A2A-012: an interrupted turn (the human pressed cancel/stop) must stop the
+  // peer's task too. The listener races every network await below and cancels
+  // the conversation as soon as its task id is known; the turn functions write
+  // ids into `taskId` as they discover them.
+  const signal = context?.abort
+  const taskId = { current: args.taskId }
+  const onAbort = () => void deps.cancel(taskId.current, "canceled by user").catch(() => undefined)
+  if (signal?.aborted) throw abortError()
+  signal?.addEventListener("abort", onAbort, { once: true })
+  try {
+    const conversation = await raceAbort(signal, resolveConversation(deps, args, baseUrl))
+    taskId.current = conversation.tracker?.taskId ?? taskId.current
+    const tracker = conversation.tracker
+    if (tracker && tracker.history().length >= deps.config.maxTurns) return capResult(deps, args, tracker)
+    if (conversation.terminal !== undefined) return terminalResult(args, conversation)
 
-  const outgoing: Message = {
-    messageId: crypto.randomUUID(),
-    role: "ROLE_USER",
-    parts: [{ text }],
-    ...(args.taskId ? { taskId: args.taskId } : {}),
-    ...(conversation.contextId ? { contextId: conversation.contextId } : {}),
+    const outgoing: Message = {
+      messageId: crypto.randomUUID(),
+      role: "ROLE_USER",
+      parts: [{ text }],
+      ...(args.taskId ? { taskId: args.taskId } : {}),
+      ...(conversation.contextId ? { contextId: conversation.contextId } : {}),
+    }
+    const priorRemote = remoteCount(tracker)
+    const turn = conversation.streaming
+      ? streamTurn(deps, conversation, outgoing, priorRemote, taskId, signal)
+      : pollTurn(deps, conversation, outgoing, priorRemote, taskId, signal)
+    // The A2A client buffers SSE bodies, so a peer that never settles its turn
+    // would hang the tool past the deadline: bound the streamed turn and cancel
+    // the remote task on timeout so the peer stops working too (A2A-012
+    // hardening for the A2A-004 review's buffered-SSE gap).
+    const bounded = conversation.streaming
+      ? withDeadline(turn, deps.timeoutMs, () => {
+          void deps.cancel(taskId.current, `turn timed out after ${deps.timeoutMs}ms`).catch(() => undefined)
+          return new Error(`Timed out waiting for A2A peer "${conversation.peerId}" to reply`)
+        })
+      : turn
+    const outcome = await raceAbort(signal, bounded)
+    if (TERMINAL_STATES.includes(outcome.state)) conversation.terminal = outcome.state
+    return renderResult(deps, args, conversation, outcome)
+  } finally {
+    signal?.removeEventListener("abort", onAbort)
   }
-  const priorRemote = remoteCount(tracker)
-  const outcome = conversation.streaming
-    ? await streamTurn(deps, conversation, outgoing, priorRemote)
-    : await pollTurn(deps, conversation, outgoing, priorRemote)
+}
 
-  return renderResult(deps, args, conversation, outcome)
+// The tool turn itself was aborted by the host; throwing an AbortError lets
+// opencode mark the turn interrupted instead of failed.
+function abortError(): Error {
+  const error = new Error("a2a_ask aborted")
+  error.name = "AbortError"
+  return error
+}
+
+function raceAbort<T>(signal: AbortSignal | undefined, promise: Promise<T>): Promise<T> {
+  if (signal === undefined) return promise
+  if (signal.aborted) return Promise.reject(abortError())
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError())
+    signal.addEventListener("abort", onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort)
+        resolve(value)
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort)
+        reject(error)
+      },
+    )
+  })
+}
+
+// Reject after `ms` even if the wrapped promise never settles. The caller's
+// onTimeout supplies the error and any cleanup (for example cancelling the
+// remote task) so the peer cannot keep working on a turn we gave up on.
+function withDeadline<T>(promise: Promise<T>, ms: number, onTimeout: () => Error): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(onTimeout()), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
 }
 
 // A task id we have not seen before can still be resumed: fetch the task,
@@ -165,12 +248,15 @@ async function pollTurn(
   conversation: Conversation,
   outgoing: Message,
   priorRemote: number,
+  taskIdRef: TaskIdRef,
+  signal?: AbortSignal,
 ): Promise<Outcome> {
   const response = await request(conversation.peerId, () => conversation.client.sendMessage(outgoing))
 
   // A synchronous peer can answer with a Message instead of a Task.
   if (isMessage(response)) {
     ensureTracker(conversation, response.taskId)
+    taskIdRef.current = response.taskId ?? taskIdRef.current
     noteTurn(deps, conversation, outgoing, "local")
     noteTurn(deps, conversation, response, "remote")
     if (conversation.tracker && response.taskId) deps.store.save(response.taskId, conversation)
@@ -180,6 +266,7 @@ async function pollTurn(
   const fresh = conversation.tracker === undefined
   const tracker = ensureTracker(conversation, response.id)
   if (!tracker) throw new Error(`A2A peer "${conversation.peerId}" did not create a task`)
+  taskIdRef.current = response.id
   if (fresh)
     deps.emit("a2a.task.dispatched", {
       taskId: response.id,
@@ -212,6 +299,7 @@ async function pollTurn(
   let outcome = taskOutcome(task, tracker, priorRemote)
   const deadline = Date.now() + deps.timeoutMs
   while (!outcome.reply && !outcome.artifact && !settled(outcome.state) && Date.now() < deadline) {
+    if (signal?.aborted) throw abortError()
     await Bun.sleep(deps.pollMs)
     task = await request(conversation.peerId, () => conversation.client.getTask(task.id))
     syncTurns(deps, conversation, task)
@@ -220,10 +308,17 @@ async function pollTurn(
     outcome = taskOutcome(task, tracker, priorRemote)
   }
 
-  if (outcome.state === "TASK_STATE_FAILED" || outcome.state === "TASK_STATE_CANCELED")
+  if (outcome.state === "TASK_STATE_FAILED" || outcome.state === "TASK_STATE_CANCELED") {
+    conversation.terminal = outcome.state
     throw new Error(`A2A peer "${conversation.peerId}" ended task ${task.id} with ${outcome.state}`)
-  if (!outcome.reply && !outcome.artifact && !settled(outcome.state))
+  }
+  if (!outcome.reply && !outcome.artifact && !settled(outcome.state)) {
+    // The turn outlived the deadline: stop the peer from working on a task we
+    // are no longer waiting for, then surface the timeout as before. The
+    // cancel is fire-and-forget so an unresponsive peer cannot hang the tool.
+    void deps.cancel(taskIdRef.current, "turn timed out").catch(() => undefined)
     throw new Error(`Timed out waiting for A2A peer "${conversation.peerId}" to reply (task ${task.id})`)
+  }
   return outcome
 }
 
@@ -232,6 +327,8 @@ async function streamTurn(
   conversation: Conversation,
   outgoing: Message,
   priorRemote: number,
+  taskIdRef: TaskIdRef,
+  signal?: AbortSignal,
 ): Promise<Outcome> {
   const peer = conversation.peerId
   const deadline = Date.now() + deps.timeoutMs
@@ -247,6 +344,11 @@ async function streamTurn(
   let state: TaskState | undefined
   let last: TaskState | undefined
   let dispatched = false
+  const seeTaskId = (id: string | undefined) => {
+    if (id === undefined) return
+    taskId = id
+    taskIdRef.current = id
+  }
   const emitState = (next: TaskState, id: string | undefined, content?: string, seen?: Artifact) => {
     if (!id || next === last) return
     last = next
@@ -264,9 +366,11 @@ async function streamTurn(
 
   try {
     for await (const event of conversation.client.streamMessage(outgoing)) {
+      if (signal?.aborted) throw abortError()
       if (Date.now() > deadline) throw new Error(`Timed out waiting for A2A peer "${peer}" to reply`)
       if (isStatusUpdate(event)) {
         taskId ??= event.taskId
+        seeTaskId(taskId)
         contextId ??= event.contextId
         state = event.status.state
         markDispatched(taskId, state)
@@ -279,6 +383,7 @@ async function streamTurn(
       }
       if (isArtifactUpdate(event)) {
         taskId ??= event.taskId
+        seeTaskId(taskId)
         contextId ??= event.contextId
         artifact = partsText(event.artifact.parts)
         lastArtifact = event.artifact
@@ -287,6 +392,7 @@ async function streamTurn(
       if (isTask(event)) {
         task = event
         taskId ??= event.id
+        seeTaskId(taskId)
         contextId ??= event.contextId
         state = event.status.state
         markDispatched(taskId, state)
@@ -303,8 +409,10 @@ async function streamTurn(
     throw error instanceof Error ? error : new Error(String(error))
   }
 
-  if (fresh && taskId && !dispatched)
+  if (fresh && taskId && !dispatched) {
+    seeTaskId(taskId)
     deps.emit("a2a.task.dispatched", { taskId, peerId: peer, state: state ?? "TASK_STATE_SUBMITTED" })
+  }
   const tracker = ensureTracker(conversation, taskId)
   noteTurn(deps, conversation, outgoing, "local")
   if (task) syncTurns(deps, conversation, task)
@@ -324,8 +432,10 @@ async function streamTurn(
 
   // Mirror pollTurn: a failed, canceled, or truncated stream must surface as an
   // error instead of a successful turn with "Reply: (none)".
-  if (outcome.state === "TASK_STATE_FAILED" || outcome.state === "TASK_STATE_CANCELED")
+  if (outcome.state === "TASK_STATE_FAILED" || outcome.state === "TASK_STATE_CANCELED") {
+    conversation.terminal = outcome.state
     throw new Error(`A2A peer "${peer}" ended task ${taskId ?? task?.id ?? "unknown"} with ${outcome.state}`)
+  }
   if (!outcome.reply && !outcome.artifact && !settled(outcome.state))
     throw new Error(`A2A peer "${peer}" ended the stream without a reply (task ${taskId ?? "unknown"})`)
   return outcome
@@ -363,6 +473,26 @@ function renderResult(deps: AskDeps, args: AskArgs, conversation: Conversation, 
       peerId: args.peer,
       ...(tracker ? { taskId: tracker.taskId, turn: tracker.history().length } : {}),
       state: outcome.state,
+    },
+  }
+}
+
+function terminalResult(args: AskArgs, conversation: Conversation): ToolResult {
+  const state = conversation.terminal
+  const tracker = conversation.tracker
+  const lines = [`Peer: ${args.peer}`]
+  if (tracker) lines.push(`Task: ${tracker.taskId}`)
+  lines.push(
+    `State: ${state}`,
+    "This task is already finished; send a new message without a taskId to start a new task.",
+  )
+  return {
+    title: `task ${state}`,
+    output: lines.join("\n"),
+    metadata: {
+      peerId: args.peer,
+      ...(tracker ? { taskId: tracker.taskId } : {}),
+      state,
     },
   }
 }
