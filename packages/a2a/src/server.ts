@@ -152,6 +152,10 @@ export class A2AServer {
     task.status = { state: "TASK_STATE_CANCELED", timestamp: timestamp() };
     try {
       await this.options.onCancel?.(task);
+    } catch {
+      // Host cleanup (aborting the session for this task) is best-effort: the
+      // task is canceled regardless, so the cancel event and response still
+      // reach the caller.
     } finally {
       this.emit(task, statusEvent(task));
     }
