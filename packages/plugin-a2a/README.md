@@ -19,6 +19,7 @@ the config file):
       {
         "a2a": {
           "enabled": true,
+          "name": "agent-a",
           "allowedPeers": { "agent-b": "http://peer-b:4321" },
           "maxTurns": 4,
         },
@@ -44,6 +45,7 @@ With the flag off, the plugin adds no tools and opens no ports.
 | `listenPort`    | `0`      | Inbound A2A server port. `0` binds an ephemeral port, reported to peers through the agent card.  |
 | `allowedPeers`  | `{}`     | Map of peer id to base URL. `a2a_ask` refuses peers that are not listed.                         |
 | `maxTurns`      | `4`      | Total conversation turns (all messages, both speakers) before the cap is reached.                |
+| `name`          | unset    | Self-identity sent to peers as the `x-a2a-peer` header, and shown as the agent-card name (`opencode` when unset). |
 | `agent`         | unset    | Agent for inbound prompts; unset uses the opencode default.                                      |
 | `model`         | unset    | Model for inbound prompts as `provider/model`; unset uses the agent's default model.             |
 | `turnTimeoutMs` | `120000` | Inbound turn deadline. A run past this is aborted and the task fails, so it never stays WORKING. |
