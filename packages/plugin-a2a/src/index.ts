@@ -1,5 +1,6 @@
 import type { Hooks, Plugin, PluginInput, PluginModule } from "@opencode-ai/plugin"
 import { ConversationStore, createAskTool } from "./ask.ts"
+import { createCanceller } from "./cancel.ts"
 import { resolveConfig, type A2AConfig } from "./config.ts"
 import { createEventEmitter } from "./events.ts"
 import { startInboundServer } from "./inbound.ts"
@@ -14,7 +15,11 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
   const emit = createEventEmitter(input.directory)
   const hooks: Hooks = {}
   let runner: SessionRunner | undefined
-  let inbound: { stop: () => void } | undefined
+  let inbound: ReturnType<typeof startInboundServer> | undefined
+  // A2A-012: one cancel routine for the whole plugin. Remote tasks go through
+  // the conversation's client, local tasks through the inbound listener; the
+  // canceller attempts both and tolerates whichever side is absent.
+  const cancel = createCanceller({ store, emit, local: () => inbound?.cancel })
 
   const apply = (config: A2AConfig) => {
     if (!config.enabled) {
@@ -24,7 +29,7 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
       inbound = undefined
       return
     }
-    hooks.tool = { a2a_ask: createAskTool({ config, store, emit }) }
+    hooks.tool = { a2a_ask: createAskTool({ config, store, emit, cancel }) }
     hooks.dispose = async () => {
       inbound?.stop()
       inbound = undefined

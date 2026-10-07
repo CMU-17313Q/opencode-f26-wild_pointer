@@ -16,6 +16,9 @@ export const A2AConfigSchema = z.object({
   // the opencode defaults for the project the plugin runs in.
   agent: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
+  // Inbound (A2A-012): a turn that runs longer than this is aborted and the
+  // task fails, so a stuck provider can never leave a task WORKING forever.
+  turnTimeoutMs: z.number().int().positive().default(120_000),
 })
 export type A2AConfig = z.infer<typeof A2AConfigSchema>
 

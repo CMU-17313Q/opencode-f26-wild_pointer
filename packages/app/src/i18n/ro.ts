@@ -1166,4 +1166,5 @@ export const dict = {
   "a2a.thread.peer.local": "local peer",
   "a2a.thread.peer.remote": "remote peer",
   "a2a.thread.verdict": "Verdict",
+  "a2a.thread.cancel": "Cancel thread",
 }

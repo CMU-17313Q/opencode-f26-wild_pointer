@@ -8,6 +8,7 @@ describe("resolveConfig", () => {
       listenPort: 0,
       allowedPeers: {},
       maxTurns: 4,
+      turnTimeoutMs: 120_000,
     })
   })
 
@@ -35,6 +36,7 @@ describe("resolveConfig", () => {
       listenPort: 4321,
       allowedPeers: { "peer-a": "http://peer-a.test:4321" },
       maxTurns: 6,
+      turnTimeoutMs: 120_000,
     })
   })
 
@@ -76,6 +78,12 @@ describe("resolveConfig", () => {
       hookConfig: { a2a: { enabled: true } },
     })
     expect(config.enabled).toBe(true)
+  })
+
+  test("reads and validates the inbound turn timeout", () => {
+    expect(resolveConfig({ env: {}, options: { turnTimeoutMs: 5_000 } }).turnTimeoutMs).toBe(5_000)
+    expect(() => resolveConfig({ env: {}, options: { turnTimeoutMs: 0 } })).toThrow()
+    expect(() => resolveConfig({ env: {}, options: { turnTimeoutMs: 1.5 } })).toThrow()
   })
 
   test("rejects a non-positive maxTurns", () => {

@@ -15,13 +15,37 @@ export interface A2AThreadData {
   turns: Turn[]
   states: TaskState[]
   artifact?: Artifact
+  // Latest task status message (cap notice, failure reason, cancel note) so
+  // terminal states explain themselves without breaking the thread.
+  status?: string
 }
 
 export interface A2AThreadProps {
   data?: A2AThreadData
+  // Cancels the running conversation: interrupts the local session, which the
+  // plugin turns into tasks/cancel on the peer and TASK_STATE_CANCELED.
+  onCancel?: () => void | Promise<void>
+  // Whether the viewed session is currently running. A turn can only be
+  // stopped while it runs, so the button is disabled otherwise.
+  isRunning?: () => boolean
 }
 
 const empty: A2AThreadData = { taskId: "", turns: [], states: [] }
+
+const TERMINAL_STATES: readonly TaskState[] = [
+  "TASK_STATE_COMPLETED",
+  "TASK_STATE_FAILED",
+  "TASK_STATE_CANCELED",
+  "TASK_STATE_REJECTED",
+]
+
+function isTerminal(state: TaskState | undefined) {
+  return state !== undefined && TERMINAL_STATES.includes(state)
+}
+
+function isError(state: TaskState | undefined) {
+  return state === "TASK_STATE_FAILED" || state === "TASK_STATE_CANCELED"
+}
 
 // Renders the most recent A2A task thread from the a2a.* events the plugin
 // publishes on the event bus (A2A-008). The `data` prop overrides the live
@@ -53,20 +77,23 @@ export function A2AThread(props: A2AThreadProps) {
     const task = parsed.data
     if (details.type === "a2a.task.dispatched") {
       // A newly dispatched task takes over the single-thread view.
-      setLive({ taskId: task.taskId, turns: [], states: [task.state], artifact: task.artifact })
+      setLive({ taskId: task.taskId, turns: [], states: [task.state], artifact: task.artifact, status: task.content })
       return
     }
     if (task.taskId !== live.taskId) {
       // Events for a task we never saw dispatched; only adopt one when idle.
       if (live.taskId !== "") return
-      setLive({ taskId: task.taskId, turns: [], states: [] })
+      setLive({ taskId: task.taskId, turns: [], states: [], status: task.content })
     }
     if (task.state !== live.states.at(-1)) setLive("states", live.states.length, task.state)
     if (task.artifact) setLive("artifact", task.artifact)
+    if (task.content !== undefined) setLive("status", task.content)
   })
   onCleanup(stop)
 
   const data = () => props.data ?? live
+  const cancelable = () => data().taskId !== "" && !isTerminal(data().states.at(-1)) && props.onCancel !== undefined
+  const running = () => props.isRunning?.() ?? true
 
   return (
     <Show when={data().turns.length > 0}>
@@ -77,7 +104,21 @@ export function A2AThread(props: A2AThreadProps) {
         <div class="mx-auto flex w-full max-w-240 flex-col gap-2">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="text-12-medium text-text-strong">{language.t("a2a.thread.title")}</div>
-            <div class="text-11-regular text-text-weak">{language.t("a2a.thread.task", { taskId: data().taskId })}</div>
+            <div class="flex items-center gap-2">
+              <div class="text-11-regular text-text-weak">
+                {language.t("a2a.thread.task", { taskId: data().taskId })}
+              </div>
+              <Show when={cancelable()}>
+                <button
+                  type="button"
+                  class="rounded-md border border-border-weak-base px-2 py-0.5 text-11-medium text-text-strong transition-colors hover:bg-surface-panel disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!running()}
+                  onClick={() => void props.onCancel?.()}
+                >
+                  {language.t("a2a.thread.cancel")}
+                </button>
+              </Show>
+            </div>
           </div>
           <div class="flex min-w-0 gap-2 overflow-x-auto pb-1">
             <For each={data().turns}>
@@ -110,10 +151,21 @@ export function A2AThread(props: A2AThreadProps) {
               )}
             </For>
           </div>
+          <Show when={data().status}>
+            <div
+              class={`text-11-regular ${isError(data().states.at(-1)) ? "text-icon-warning-base" : "text-text-weak"}`}
+            >
+              {data().status}
+            </div>
+          </Show>
           <Show when={data().artifact && data().states.at(-1) === "TASK_STATE_COMPLETED"}>
             <div class="border-l-2 border-icon-success-base pl-3 text-12-regular text-text-base">
               <span class="text-11-medium text-text-strong">{language.t("a2a.thread.verdict")}</span>
-              <div>{data().artifact?.parts.map((part) => part.text).join(" ")}</div>
+              <div>
+                {data()
+                  .artifact?.parts.map((part) => part.text)
+                  .join(" ")}
+              </div>
             </div>
           </Show>
         </div>

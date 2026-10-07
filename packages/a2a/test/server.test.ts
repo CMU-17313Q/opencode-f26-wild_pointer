@@ -321,6 +321,18 @@ describe("tasks/cancel", () => {
     expect(error).toBeInstanceOf(A2AError);
     if (error instanceof A2AError) expect(error.code).toBe(ErrorCode.TASK_NOT_CANCELLABLE);
   });
+
+  test("a throwing onCancel still cancels the task", async () => {
+    const { client } = pair({
+      onCancel: () => {
+        throw new Error("session abort failed");
+      },
+    });
+    const task = (await client.sendMessage(userMessage)) as Task;
+    const result = await client.cancelTask(task.id);
+    expect(result.status.state).toBe("TASK_STATE_CANCELED");
+    expect((await client.getTask(task.id)).status.state).toBe("TASK_STATE_CANCELED");
+  });
 });
 
 describe("message/stream", () => {
