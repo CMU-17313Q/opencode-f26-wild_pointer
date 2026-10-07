@@ -1,21 +1,31 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import type { Config, PluginInput } from "@opencode-ai/plugin"
 import plugin, { A2APlugin } from "../src/index.ts"
 
-const input = {
-  directory: process.cwd(),
-  worktree: process.cwd(),
-  // Enabling A2A now starts the inbound listener; it is only reached through
-  // Bun.serve, and app.log exists so a bind failure can be reported.
-  client: { app: { log: async () => undefined } },
-} as unknown as PluginInput
+// A2A-014 starts a loopback admin server and writes its port file under the
+// project's .opencode/a2a; every test runs against a throwaway directory so
+// nothing is ever written into the repository.
+let dir = ""
+let input: PluginInput
 
 beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), "a2a-plugin-"))
+  input = {
+    directory: dir,
+    worktree: dir,
+    // Enabling A2A now starts the inbound listener; it is only reached through
+    // Bun.serve, and app.log exists so a bind failure can be reported.
+    client: { app: { log: async () => undefined } },
+  } as unknown as PluginInput
   delete process.env.OPENCODE_A2A_ENABLED
 })
 
 afterEach(() => {
   delete process.env.OPENCODE_A2A_ENABLED
+  rmSync(dir, { recursive: true, force: true })
 })
 
 describe("plugin module", () => {
