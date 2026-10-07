@@ -47,6 +47,48 @@ describe("opt-in", () => {
     await hooks.dispose?.()
   })
 
+  test("logs a one-time notice when enabled without a name", async () => {
+    const logs: string[] = []
+    const client = {
+      ...input.client,
+      app: {
+        log: async (entry: Parameters<PluginInput["client"]["app"]["log"]>[0]) => {
+          const message = entry?.body?.message
+          if (message !== undefined) logs.push(message)
+        },
+      },
+    } as unknown as PluginInput["client"]
+    const logged = { ...input, client } as unknown as PluginInput
+
+    const hooks = await A2APlugin(logged, { a2a: { enabled: true } })
+    // apply() runs again from the config hook; the notice must not repeat.
+    await hooks.config?.({ a2a: { enabled: true } } as unknown as Config)
+
+    expect(logs).toHaveLength(1)
+    expect(logs[0]).toContain("without a name")
+    await hooks.dispose?.()
+  })
+
+  test("does not log the missing-name notice when a name is configured", async () => {
+    const logs: string[] = []
+    const client = {
+      ...input.client,
+      app: {
+        log: async (entry: Parameters<PluginInput["client"]["app"]["log"]>[0]) => {
+          const message = entry?.body?.message
+          if (message !== undefined) logs.push(message)
+        },
+      },
+    } as unknown as PluginInput["client"]
+    const logged = { ...input, client } as unknown as PluginInput
+
+    const hooks = await A2APlugin(logged, { a2a: { enabled: true, name: "agent-b" } })
+    await hooks.config?.({ a2a: { enabled: true, name: "agent-b" } } as unknown as Config)
+
+    expect(logs).toHaveLength(0)
+    await hooks.dispose?.()
+  })
+
   test("config hook can enable the tool", async () => {
     const hooks = await A2APlugin(input, { a2a: { enabled: false } })
     expect(hooks.tool).toBeUndefined()

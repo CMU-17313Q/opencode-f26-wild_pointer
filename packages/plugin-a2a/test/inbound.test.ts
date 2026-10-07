@@ -186,6 +186,32 @@ describe("inbound bridge", () => {
     }
   })
 
+  test("the agent card carries the configured name", async () => {
+    const fake = fakeRunner()
+    const bridge = startBridge(fake.runner, { name: "agent-b" })
+    try {
+      const response = await fetch(`${bridge.baseUrl}/.well-known/agent-card.json`)
+      const body = (await response.json()) as { name?: string }
+      expect(body.name).toBe("agent-b")
+
+      const card = await bridge.client.fetchAgentCard()
+      expect(card.name).toBe("agent-b")
+    } finally {
+      bridge.stop()
+    }
+  })
+
+  test("the agent card falls back to opencode with no name configured", async () => {
+    const fake = fakeRunner()
+    const bridge = startBridge(fake.runner)
+    try {
+      const card = await bridge.client.fetchAgentCard()
+      expect(card.name).toBe("opencode")
+    } finally {
+      bridge.stop()
+    }
+  })
+
   test("stopping the listener closes the port", async () => {
     const fake = fakeRunner()
     const bridge = startBridge(fake.runner)
