@@ -2123,7 +2123,10 @@ export default function Page() {
                       }}
                     />
                   </div>
-                  <A2AThread />
+                  <A2AThread
+                    onCancel={() => (params.id ? halt(params.id) : undefined)}
+                    isRunning={() => params.id !== undefined && busy(params.id)}
+                  />
                 </div>
               )}
             </Show>

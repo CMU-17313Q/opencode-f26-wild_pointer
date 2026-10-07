@@ -95,11 +95,16 @@ what matters is both replies arrive on the same task over raw JSON-RPC.
 
 ## Notes
 
-- `allowedPeers` is required for *outbound* `a2a_ask` calls on that side; the
+- `allowedPeers` is required for _outbound_ `a2a_ask` calls on that side; the
   inbound bridge accepts any caller that knows the URL, recording its
   `x-a2a-peer` header (or socket address) as the task's peer identity.
 - If Agent A is also opencode, use `a2a_ask` in a session instead of
   `debate.ts` — same wire calls, events included.
+- While a turn is running, the app's A2A thread view shows `Cancel thread`.
+  Clicking it interrupts the local session, sends `tasks/cancel` to the peer,
+  and both sides settle the task as `TASK_STATE_CANCELED` (the peer's
+  `INPUT_REQUIRED`/`WORKING` task included). The button is disabled once the
+  task reaches a terminal state or while the viewed session is idle.
 - Ports must be reachable across both machines; `debate.ts` and
   `peer-check.py` can run on the same host as opencode with `--peer
-  http://localhost:4000` for a smoke test.
+http://localhost:4000` for a smoke test.
