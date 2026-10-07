@@ -79,7 +79,7 @@ function envEnabled(env: Record<string, string | undefined> | undefined) {
   return value === "1" || value === "true"
 }
 
-function requireUrl(id: string, url: string) {
+export function requireUrl(id: string, url: string) {
   try {
     new URL(url)
   } catch {
