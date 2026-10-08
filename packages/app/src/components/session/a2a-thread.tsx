@@ -5,6 +5,8 @@ import {
   type TaskState,
   type Turn,
 } from "a2a"
+import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+import { TextareaV2 } from "@opencode-ai/ui/v2/textarea-v2"
 import { For, Show, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
@@ -28,6 +30,11 @@ export interface A2AThreadProps {
   // Whether the viewed session is currently running. A turn can only be
   // stopped while it runs, so the button is disabled otherwise.
   isRunning?: () => boolean
+  // When provided, the thread renders a follow-up composer. The hub uses this to
+  // continue an outbound task; the session page omits it entirely.
+  onFollowUp?: (text: string) => Promise<void> | void
+  followUpPending?: boolean
+  followUpDisabled?: boolean
 }
 
 const empty: A2AThreadData = { taskId: "", turns: [], states: [] }
@@ -54,6 +61,7 @@ export function A2AThread(props: A2AThreadProps) {
   const language = useLanguage()
   const sdk = useSDK()
   const [live, setLive] = createStore<A2AThreadData>(empty)
+  const [followUp, setFollowUp] = createStore({ draft: "" })
 
   const stop = sdk().event.listen((evt) => {
     const details = evt.details as { type?: string; properties?: unknown }
@@ -94,6 +102,19 @@ export function A2AThread(props: A2AThreadProps) {
   const data = () => props.data ?? live
   const cancelable = () => data().taskId !== "" && !isTerminal(data().states.at(-1)) && props.onCancel !== undefined
   const running = () => props.isRunning?.() ?? true
+
+  const submitFollowUp = async () => {
+    if (!props.onFollowUp || props.followUpPending || props.followUpDisabled) return
+    const text = followUp.draft.trim()
+    if (text === "") return
+    setFollowUp("draft", "")
+    try {
+      await props.onFollowUp(text)
+    } catch {
+      // Keep the text so the user can retry after a failed turn.
+      setFollowUp("draft", text)
+    }
+  }
 
   return (
     <Show when={data().turns.length > 0}>
@@ -167,6 +188,43 @@ export function A2AThread(props: A2AThreadProps) {
                   .join(" ")}
               </div>
             </div>
+          </Show>
+          <Show when={props.onFollowUp}>
+            <form
+              class="flex items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void submitFollowUp()
+              }}
+            >
+              <TextareaV2
+                class="min-h-0 flex-1"
+                rows={2}
+                value={followUp.draft}
+                disabled={props.followUpPending === true || props.followUpDisabled === true}
+                placeholder={language.t("a2a.thread.followUp.placeholder")}
+                aria-label={language.t("a2a.thread.followUp.ariaLabel")}
+                onInput={(event) => setFollowUp("draft", event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault()
+                    void submitFollowUp()
+                  }
+                }}
+              />
+              <ButtonV2
+                type="submit"
+                size="small"
+                variant="contrast"
+                disabled={
+                  props.followUpPending === true || props.followUpDisabled === true || followUp.draft.trim() === ""
+                }
+              >
+                {props.followUpPending
+                  ? language.t("a2a.thread.followUp.pending")
+                  : language.t("a2a.thread.followUp.send")}
+              </ButtonV2>
+            </form>
           </Show>
         </div>
       </section>
