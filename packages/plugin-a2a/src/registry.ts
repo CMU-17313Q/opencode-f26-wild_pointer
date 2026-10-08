@@ -16,6 +16,14 @@ export type RegistryContext = {
   sessionId?: string
 }
 
+export type TaskTurn = {
+  speaker: "local" | "remote"
+  turn: number
+  peerId?: string
+  taskId?: string
+  content: string
+}
+
 export type TaskRecord = {
   taskId: string
   direction: ConversationDirection
@@ -25,6 +33,12 @@ export type TaskRecord = {
   turns: number
   sessionId?: string
   message?: string
+  // Full conversation capture so UIs can render a task after the fact, not
+  // only from live events: the turn log and state chain (both capped), plus
+  // the latest verdict artifact.
+  history?: TaskTurn[]
+  states?: TaskState[]
+  artifact?: unknown
   createdAt: number
   updatedAt: number
 }
@@ -41,6 +55,8 @@ const TERMINAL_STATES = new Set<TaskState>([
 // live forever.
 const RESTART_MESSAGE = "host restarted"
 const DEFAULT_LIMIT = 50
+const HISTORY_LIMIT = 40
+const STATES_LIMIT = 20
 
 export type Registry = {
   // Wrap the base emitter so every a2a.task.* / a2a.conversation.turn goes to
@@ -106,14 +122,30 @@ export function createConversationRegistry(input: {
       const turn = typeof properties.turn === "number" ? properties.turn : 0
       const record = existing ?? createRecord(taskId, ctx, timestamp)
       record.turns = Math.max(record.turns, turn + 1)
+      const speaker = properties.speaker === "local" || properties.speaker === "remote" ? properties.speaker : undefined
+      if (speaker !== undefined) {
+        const entry: TaskTurn = {
+          speaker,
+          turn,
+          taskId,
+          ...(typeof properties.peerId === "string" ? { peerId: properties.peerId } : {}),
+          content: typeof properties.content === "string" ? properties.content : "",
+        }
+        record.history = [...(record.history ?? []), entry].slice(-HISTORY_LIMIT)
+      }
       record.updatedAt = timestamp
       records.set(taskId, record)
       schedule()
       return
     }
     const record = existing ?? createRecord(taskId, ctx, timestamp)
-    if (typeof properties.state === "string") record.state = properties.state as TaskState
+    if (typeof properties.state === "string") {
+      record.state = properties.state as TaskState
+      if (record.states?.at(-1) !== record.state)
+        record.states = [...(record.states ?? []), record.state].slice(-STATES_LIMIT)
+    }
     if (typeof properties.content === "string") record.message = properties.content
+    if (properties.artifact !== undefined) record.artifact = properties.artifact
     if (ctx.sessionId !== undefined) record.sessionId = ctx.sessionId
     record.updatedAt = timestamp
     records.set(taskId, record)
@@ -137,6 +169,8 @@ export function createConversationRegistry(input: {
       if (TERMINAL_STATES.has(record.state)) continue
       record.state = "TASK_STATE_FAILED"
       record.message = RESTART_MESSAGE
+      if (record.states !== undefined && record.states.at(-1) !== "TASK_STATE_FAILED")
+        record.states = [...record.states, "TASK_STATE_FAILED"]
       record.updatedAt = now()
       changed = true
     }

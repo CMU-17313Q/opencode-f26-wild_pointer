@@ -111,8 +111,9 @@ tasks/peers return `404`, and peer/network failures return `502`.
 
 State lives under `<project>/.opencode/a2a/` (never committed):
 
-- `sessions.json` — the last 50 tasks by `updatedAt`, written atomically (temp file + rename). A task
-  a dead process left running settles to `TASK_STATE_FAILED` with `host restarted` on next load.
+- `sessions.json` — the last 50 tasks by `updatedAt` (each with its capped turn history, state
+  chain, and latest artifact), written atomically (temp file + rename). A task a dead process
+  left running settles to `TASK_STATE_FAILED` with `host restarted` on next load.
 - `admin.port` — the bound loopback port, while the plugin is enabled.
 
 ## Develop
