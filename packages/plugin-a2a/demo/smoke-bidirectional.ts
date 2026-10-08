@@ -19,7 +19,7 @@
 import { A2AClient, A2A_PEER_HEADER, type Message, type Task } from "a2a"
 import type { ToolContext } from "@opencode-ai/plugin/tool"
 import { ConversationStore, createAskTool } from "../src/ask.ts"
-import type { A2AConfig } from "../src/config.ts"
+import { resolveConfig } from "../src/config.ts"
 import type { A2AEventEmitter } from "../src/events.ts"
 
 const INTERRUPTED = new Set(["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"])
@@ -164,13 +164,11 @@ async function main() {
   try {
     console.log("\n--- direction A: opencode -> peer via a2a_ask ---")
     const askLog = eventLog()
-    const config: A2AConfig = {
-      enabled: true,
-      listenPort: 0,
-      allowedPeers: { [peerId]: peer },
-      maxTurns: 4,
-      name,
-    }
+    // Built through resolveConfig (not a literal) so new defaulted fields
+    // such as turnTimeoutMs keep typechecking as the schema evolves.
+    const config = resolveConfig({
+      options: { a2a: { enabled: true, allowedPeers: { [peerId]: peer }, maxTurns: 4, name } },
+    })
     const ask = createAskTool({ config, store: new ConversationStore(), emit: askLog.emit, timeoutMs: 180_000 })
     const call = async (message: string, taskId?: string) => {
       const result = await ask.execute({ peer: peerId, message, taskId }, context())
