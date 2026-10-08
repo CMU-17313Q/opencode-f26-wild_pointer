@@ -287,12 +287,18 @@ export const DialogA2AHub: Component<DialogA2AHubProps> = (props) => {
                   fallback={
                     <div class="flex flex-col gap-2 rounded-md border border-border-weak-base p-4">
                       <span class="text-12-regular text-text-weak">
-                        {store.peersError ? language.t("a2a.hub.peers.error") : language.t("a2a.hub.peers.empty")}
+                        {store.peersLoading
+                          ? language.t("common.loading")
+                          : store.peersError
+                            ? language.t("a2a.hub.peers.error")
+                            : language.t("a2a.hub.peers.empty")}
                       </span>
-                      <span class="text-11-regular text-text-weak">{language.t("a2a.hub.peers.emptyHint")}</span>
-                      <ButtonV2 size="small" variant="outline" onClick={() => showSettings()}>
-                        {language.t("a2a.hub.disabled.action")}
-                      </ButtonV2>
+                      <Show when={!store.peersLoading}>
+                        <span class="text-11-regular text-text-weak">{language.t("a2a.hub.peers.emptyHint")}</span>
+                        <ButtonV2 size="small" variant="outline" onClick={() => showSettings()}>
+                          {language.t("a2a.hub.disabled.action")}
+                        </ButtonV2>
+                      </Show>
                     </div>
                   }
                 >
@@ -345,6 +351,7 @@ export const DialogA2AHub: Component<DialogA2AHubProps> = (props) => {
                 onOpenSession={openSession}
                 age={age}
                 directionLabel={directionLabel}
+                originLabel={originLabel}
               />
             </Show>
 
@@ -429,6 +436,7 @@ interface SessionsListProps {
   onOpenSession: (sessionId: string) => void
   age: (timestamp: number) => string
   directionLabel: (direction: A2ASessionRecord["direction"]) => string
+  originLabel: (origin: A2ASessionRecord["origin"]) => string
 }
 
 function SessionsList(props: SessionsListProps) {
@@ -438,9 +446,11 @@ function SessionsList(props: SessionsListProps) {
       when={props.records.length > 0}
       fallback={
         <div class="rounded-md border border-border-weak-base p-4 text-12-regular text-text-weak">
-          <Show when={props.error} fallback={language.t("a2a.hub.sessions.empty")}>
-            {language.t("a2a.hub.sessions.error")}
-          </Show>
+          {props.loading
+            ? language.t("common.loading")
+            : props.error
+              ? language.t("a2a.hub.sessions.error")
+              : language.t("a2a.hub.sessions.empty")}
         </div>
       }
     >
@@ -455,7 +465,7 @@ function SessionsList(props: SessionsListProps) {
                   onClick={() => props.onOpen(record.taskId)}
                 >
                   <span class="flex items-center gap-2 text-12-medium text-text-strong">
-                    <span class="truncate">{record.peerId ?? record.origin}</span>
+                    <span class="truncate">{record.peerId ?? props.originLabel(record.origin)}</span>
                     <span class="text-text-weak">{props.directionLabel(record.direction)}</span>
                   </span>
                   <span class="flex flex-wrap items-center gap-2 text-11-regular text-text-weak">
