@@ -133,12 +133,13 @@ export function A2AInlineThread(props: A2AInlineThreadProps) {
   createEffect(on(() => props.revision?.(), triggered, { defer: true }))
   createEffect(on(() => inlineThreadSignature(props.thread), triggered, { defer: true }))
 
+  // The header names the peer, not the local agent: the conversation is
+  // identified by who it is with.
   const peer = () => {
-    const first = data().turns[0]
-    if (!first) return ""
-    return first.peerId ?? language.t(first.speaker === "local" ? "a2a.thread.peer.local" : "a2a.thread.peer.remote")
+    const remote = data().turns.find((turn) => turn.speaker === "remote")
+    if (!remote) return ""
+    return remote.peerId ?? language.t("a2a.thread.peer.remote")
   }
-  const lastState = () => data().states.at(-1)
 
   // The virtualized timeline must remeasure as the capture grows or refreshes,
   // not only when the user folds the box.
@@ -166,9 +167,6 @@ export function A2AInlineThread(props: A2AInlineThreadProps) {
         <span class="text-12-medium text-text-strong">{language.t("a2a.inline.title")}</span>
         <Show when={peer()}>
           <span class="text-11-regular text-text-weak">{peer()}</span>
-        </Show>
-        <Show when={lastState()}>
-          <span class="text-11-regular text-text-weak">{lastState()}</span>
         </Show>
         <span class="ml-auto text-11-regular text-text-weak">
           {language.t("a2a.hub.sessions.turns", { count: data().turns.length })}

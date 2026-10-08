@@ -46,47 +46,33 @@ function isError(state: TaskState | undefined) {
 }
 
 // Conversation body shared by the bottom thread panel and the inline timeline
-// box: turn cards, state chain, status line, and verdict. The surrounding shell
-// (header, cancel, follow-up composer) stays in A2AThread.
+// box: the exchanges as `speaker: message` lines, an explanation line when the
+// task ended without a verdict, and the verdict itself. Diagnostic details
+// (task ids, turn numbers, state chains) are deliberately omitted, and messages
+// always render in full. The surrounding shell (header, cancel, follow-up
+// composer) stays in A2AThread.
 export function A2AConversation(props: A2AConversationProps) {
   const language = useLanguage()
 
   return (
     <>
-      <div class="flex min-w-0 gap-2 overflow-x-auto pb-1">
+      <div class="flex flex-col gap-1.5">
         <For each={props.data.turns}>
           {(turn) => (
-            <article class="min-w-56 max-w-72 flex-1 rounded-md border border-border-weak-base bg-surface-panel px-3 py-2">
-              <div class="flex items-center justify-between gap-2 text-11-medium text-text-strong">
-                <span>
-                  {turn.peerId ??
-                    language.t(turn.speaker === "local" ? "a2a.thread.peer.local" : "a2a.thread.peer.remote")}
-                </span>
-                <span class="text-text-weak">{language.t("a2a.thread.turn", { turn: turn.index + 1 })}</span>
-              </div>
-              <div class="mt-1 text-11-regular text-text-weak">
-                {turn.speaker} · {turn.taskId ?? props.data.taskId}
-              </div>
-              <p class="mt-2 line-clamp-2 text-12-regular text-text-base">{turn.text}</p>
-            </article>
+            <p class="break-words whitespace-pre-wrap text-12-regular text-text-base">
+              <span class="text-12-medium text-text-strong">
+                {turn.peerId ??
+                  language.t(turn.speaker === "local" ? "a2a.thread.peer.local" : "a2a.thread.peer.remote")}
+                {": "}
+              </span>
+              {turn.text}
+            </p>
           )}
         </For>
       </div>
-      <div class="flex flex-wrap items-center gap-1.5 text-11-regular text-text-weak">
-        <For each={props.data.states}>
-          {(state, index) => (
-            <>
-              <span class={index() === props.data.states.length - 1 ? "text-text-strong" : ""}>{state}</span>
-              <Show when={index() < props.data.states.length - 1}>
-                <span aria-hidden>&gt;</span>
-              </Show>
-            </>
-          )}
-        </For>
-      </div>
-      <Show when={props.data.status}>
+      <Show when={props.data.status && !props.data.artifact}>
         <div
-          class={`text-11-regular ${isError(props.data.states.at(-1)) ? "text-icon-warning-base" : "text-text-weak"}`}
+          class={`break-words text-11-regular ${isError(props.data.states.at(-1)) ? "text-icon-warning-base" : "text-text-weak"}`}
         >
           {props.data.status}
         </div>
@@ -94,7 +80,9 @@ export function A2AConversation(props: A2AConversationProps) {
       <Show when={props.data.artifact && props.data.states.at(-1) === "TASK_STATE_COMPLETED"}>
         <div class="border-l-2 border-icon-success-base pl-3 text-12-regular text-text-base">
           <span class="text-11-medium text-text-strong">{language.t("a2a.thread.verdict")}</span>
-          <div>{props.data.artifact?.parts.map((part) => part.text).join(" ")}</div>
+          <div class="break-words whitespace-pre-wrap">
+            {props.data.artifact?.parts.map((part) => part.text).join(" ")}
+          </div>
         </div>
       </Show>
     </>

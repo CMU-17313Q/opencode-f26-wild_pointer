@@ -114,13 +114,21 @@ suite("A2AInlineThread DOM", () => {
     const mounted = mount(fixture, () => {})
     const text = mounted.host.textContent ?? ""
     expect(text).toContain("A2A conversation")
-    expect(text).toContain("agent-b")
+    expect(text).toContain("agent-a")
     expect(text).toContain("2 turns")
-    expect(text).toContain("TASK_STATE_COMPLETED")
-    expect(text).toContain("hello peer")
-    expect(text).toContain("hi back")
-    expect(text).toContain("all done")
+    expect(text).toContain("agent-b: hello peer")
+    expect(text).toContain("agent-a: hi back")
     expect(text).toContain("verdict text")
+    // Diagnostics stay out of the box: no state chain, and no status line when
+    // a verdict already tells the story.
+    expect(text).not.toContain("TASK_STATE")
+    expect(text).not.toContain("all done")
+    mounted.dispose()
+  })
+
+  test("shows the status note when there is no verdict to show", () => {
+    const mounted = mount({ ...fixture, artifact: undefined }, () => {})
+    expect(mounted.host.textContent).toContain("all done")
     mounted.dispose()
   })
 
