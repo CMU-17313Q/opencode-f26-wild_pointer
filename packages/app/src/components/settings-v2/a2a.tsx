@@ -60,6 +60,28 @@ export const SettingsA2AV2: Component<{ directory?: string }> = (props) => {
     return error instanceof Error ? error.message : String(error)
   }
 
+  // Peer-facing config lines, LAN addresses first: localhost alone is
+  // unreachable from another machine.
+  const socketLines = () => {
+    const self = store.self
+    if (!self?.url) return []
+    const format = (url: string) => (self.name ? `"${self.name}": "${url}"` : url)
+    const lan = self.lanUrls ?? []
+    return [
+      ...lan.map((url) => ({ text: format(url), weak: false })),
+      { text: format(self.url), weak: lan.length > 0 },
+    ]
+  }
+
+  const copySocket = () => {
+    const first = socketLines()[0]
+    if (!first) return
+    navigator.clipboard
+      .writeText(first.text)
+      .then(() => showToast({ title: language.t("a2a.settings.self.copied") }))
+      .catch(() => showToast({ title: language.t("a2a.settings.self.copy.error") }))
+  }
+
   const load = async () => {
     const client = control()
     if (!client) {
@@ -184,9 +206,23 @@ export const SettingsA2AV2: Component<{ directory?: string }> = (props) => {
                   title={language.t("a2a.settings.self.label")}
                   description={language.t("a2a.settings.self.description")}
                 >
-                  <span class="break-all font-mono text-11-regular text-text-strong">
-                    {store.self?.name ? `"${store.self.name}": "${store.self.url}"` : store.self?.url}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <div class="flex min-w-0 flex-col items-end gap-0.5">
+                      <For each={socketLines()}>
+                        {(line) => (
+                          <span
+                            data-selectable="true"
+                            class={`break-all font-mono text-11-regular ${line.weak ? "text-text-weak" : "text-text-strong"}`}
+                          >
+                            {line.text}
+                          </span>
+                        )}
+                      </For>
+                    </div>
+                    <ButtonV2 size="small" variant="ghost" onClick={() => copySocket()}>
+                      {language.t("a2a.settings.self.copy")}
+                    </ButtonV2>
+                  </div>
                 </SettingsRowV2>
               </Show>
               <SettingsRowV2

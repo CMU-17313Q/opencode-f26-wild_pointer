@@ -71,6 +71,8 @@ export interface A2ASelf {
   name?: string
   listenPort: number
   url?: string
+  // Addresses a peer on the same network can dial (localhost is not one).
+  lanUrls?: string[]
 }
 
 // `kind` lets the UI localize the failure; `message` carries the plugin's own
