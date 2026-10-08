@@ -286,7 +286,7 @@ test("a2a.peers lists allowedPeers and own identity", async () => {
   }
 })
 
-test("ctrl+alt+a binding toggles the sessions panel", async () => {
+test("a2a commands expose slash names and toggle the sessions panel", async () => {
   await using tmp = await tmpdir()
   const server = serveAdmin()
   await mkdir(path.join(tmp.path, ".opencode/a2a"), { recursive: true })
@@ -294,16 +294,25 @@ test("ctrl+alt+a binding toggles the sessions panel", async () => {
 
   const panel = await mountPanel({ root: tmp.path })
   try {
-    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    const slashes = new Map(
+      panel.keymap
+        .getCommandEntries({ visibility: "registered", namespace: "palette" })
+        .map((entry) => [entry.command.name, entry.command.slashName]),
+    )
+    expect(slashes.get("a2a.sessions")).toBe("a2a")
+    expect(slashes.get("a2a.new")).toBe("a2a-new")
+    expect(slashes.get("a2a.peers")).toBe("a2a-peers")
+
+    panel.keymap.dispatchCommand("a2a.sessions")
     await waitForFrame(panel.app, "A2A sessions", 2000)
 
-    // pressing again while the panel is open toggles it closed
-    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    // re-running the command while the panel is open toggles it closed
+    panel.keymap.dispatchCommand("a2a.sessions")
     await Bun.sleep(150)
     await panel.app.renderOnce()
     expect(panel.frame()).not.toContain("A2A sessions")
 
-    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    panel.keymap.dispatchCommand("a2a.sessions")
     await waitForFrame(panel.app, "A2A sessions", 2000)
 
     // letters land in the open dialog's filter input, not the palette
@@ -317,7 +326,7 @@ test("ctrl+alt+a binding toggles the sessions panel", async () => {
     await panel.app.renderOnce()
     expect(panel.frame()).not.toContain("A2A sessions")
 
-    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    panel.keymap.dispatchCommand("a2a.sessions")
     await waitForFrame(panel.app, "A2A sessions", 2000)
   } finally {
     await panel.cleanup()

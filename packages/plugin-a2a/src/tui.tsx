@@ -866,6 +866,7 @@ const tui: TuiPlugin = async (api) => {
           title: "A2A: New conversation",
           category: "A2A",
           namespace: "palette",
+          slashName: "a2a-new",
           run: () => panel.startFlow(),
         },
         {
@@ -873,6 +874,7 @@ const tui: TuiPlugin = async (api) => {
           title: "A2A: Sessions",
           category: "A2A",
           namespace: "palette",
+          slashName: "a2a",
           run: () => panel.showSessions(),
         },
         {
@@ -880,15 +882,11 @@ const tui: TuiPlugin = async (api) => {
           title: "A2A: Peers",
           category: "A2A",
           namespace: "palette",
+          slashName: "a2a-peers",
           run: () => panel.showPeers(),
         },
       ],
-      bindings: [
-        ...(api.tuiConfig.keybinds.has("a2a.sessions")
-          ? []
-          : [{ key: "ctrl+alt+a", cmd: "a2a.sessions", desc: "A2A sessions", group: "A2A" }]),
-        ...api.tuiConfig.keybinds.gather("a2a.palette", ["a2a.new", "a2a.sessions", "a2a.peers"]),
-      ],
+      bindings: api.tuiConfig.keybinds.gather("a2a.palette", ["a2a.new", "a2a.sessions", "a2a.peers"]),
     }),
   )
 }

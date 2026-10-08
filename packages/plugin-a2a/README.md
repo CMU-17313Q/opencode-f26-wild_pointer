@@ -89,18 +89,19 @@ The package ships a `./tui` target (`{ id: "a2a", tui }`). TUI plugins are decla
 { "plugin": ["file:///absolute/path/to/packages/plugin-a2a"] }
 ```
 
-Once loaded, the TUI picks up three palette commands plus a default `ctrl+alt+a` binding for the
-session list:
+Once loaded, the TUI picks up three palette commands, each reachable from the prompt's slash menu
+(`/a2a`, `/a2a-new`, `/a2a-peers`):
 
-- **A2A: Sessions** — current and past tasks (peer, direction, state, turns, age; running on top).
-  Pressing `ctrl+alt+a` while the panel is open closes it again. Enter opens the live thread: turns
+- **A2A: Sessions** (`/a2a`) — current and past tasks (peer, direction, state, turns, age; running
+  on top). Running it while the panel is open closes it again. Enter opens the live thread: turns
   in order with speaker labels, the state chip, the verdict artifact when present, and the turn-cap
   message rendered as the bounded ending rather than an error. Inside a thread: `m`/`enter` reply,
   `x` cancel a running task, `b`/`backspace` back, arrows/`pageup`/`pagedown` scroll, `r` refresh,
   `esc` close.
-- **A2A: New conversation** — peer picker (configured `allowedPeers` plus names seen in sessions)
-  then a message prompt. Follow-ups reuse the same `taskId`.
-- **A2A: Peers** — the `allowedPeers` map plus your own identity and listener status. Enter on a
+- **A2A: New conversation** (`/a2a-new`) — peer picker (configured `allowedPeers` plus names seen in
+  sessions) then a message prompt. Follow-ups reuse the same `taskId`.
+- **A2A: Peers** (`/a2a-peers`) — the `allowedPeers` map plus your own identity and listener status.
+  Enter on a
   peer offers Test (fetches the agent card — the peer's claimed name, which may differ from the
   local key) and Remove; "Add peer" asks for a name and URL.
 
@@ -141,8 +142,8 @@ bun typecheck
 ```
 
 `test/tui-panel.test.tsx` renders the panel headlessly (OpenTUI's `testRender`) against a fake
-`/a2a/*` control server — sessions list → thread, live `a2a.*` events, peers, and the `ctrl+alt+a`
-binding — so most panel changes don't need a manual TUI run. One constraint it surfaces: view
+`/a2a/*` control server — sessions list → thread, live `a2a.*` events, peers, and slash-name
+registration — so most panel changes don't need a manual TUI run. One constraint it surfaces: view
 components pushed to `dialog.replace` must return an intrinsic element (e.g. `<box>`) at the top
 level — returning `<Show>`/another component leaks signal reads into the dialog thunk's tracked
 scope and remounts the view on every state change.
