@@ -1,4 +1,4 @@
-# A2A-010 cross-computer demo
+# A2A-010 cross-computer demo / A2A-011 bidirectional smoke test
 
 Two scripts that prove an opencode instance speaks real A2A on the wire:
 
@@ -8,6 +8,13 @@ Two scripts that prove an opencode instance speaks real A2A on the wire:
 - `peer-check.py` — Python 3 stdlib only. A non-opencode client that starts a
   task, replies on the same `taskId`, and reads both answers. No `a2a-sdk`,
   no dependencies — plain JSON-RPC over HTTP.
+- `smoke-bidirectional.ts` — A2A-011. Both directions complete a 2-turn
+  exchange with turn events present, one `taskId` per direction. Direction A
+  (opencode → peer) goes through the real `a2a_ask` tool with a recording
+  emitter; direction B (peer → opencode) speaks raw A2A to a live inbound
+  bridge while turn events are captured off the serve SSE stream
+  (`/global/event`), the same fan-out the app UI reads. Fails loudly on any
+  missing reply, taskId reuse break, or absent turn events.
 
 ## Setup (Agent B machine — the opencode peer)
 
@@ -92,6 +99,33 @@ peer check passed: same taskId carried both turns and both replies came back.
 Two turns only, so the task lands in `INPUT_REQUIRED` awaiting a third turn;
 `maxTurns: 2` on the B side makes it `COMPLETED` instead. Either is a pass —
 what matters is both replies arrive on the same task over raw JSON-RPC.
+
+## Run the A2A-011 bidirectional smoke test
+
+Needs your own serve + A2A listener up (steps 1–3 above), since direction B
+targets your live inbound and reads your serve event stream:
+
+```sh
+cd packages/plugin-a2a
+bun run demo/smoke-bidirectional.ts \
+  --peer http://<peer-host>:4000 --peer-id agent-a \
+  --inbound http://localhost:4000 --serve http://localhost:4096 \
+  --name agent-b
+```
+
+Loopback (one machine, real model): point `--peer` at your own A2A port, as
+above. Cross-machine: `--peer` is the friend's URL while `--inbound`/`--serve`
+stay yours; the friend mirrors with the flags flipped. Expected tail:
+
+```
+SMOKE PASS: both directions completed 2 turns (tasks <id-a>, <id-b>) with turn events
+```
+
+Direction A asserts both replies arrive under one `taskId` through `a2a_ask`
+plus `local@0, remote@1, local@2, remote@3` turn events and `task.dispatched`.
+Direction B asserts the same over the wire plus `remote@0, local@1, remote@2,
+local@3` turn events observed on the serve SSE stream. Paste this transcript
+into the merge PR as the A2A-011 evidence.
 
 ## Notes
 
