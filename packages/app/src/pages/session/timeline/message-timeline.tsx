@@ -317,6 +317,17 @@ export function MessageTimeline(props: {
   const parentTitle = createMemo(() => sessionTitle(parent()?.title) ?? language.t("command.session.new"))
   const getMsgParts = (msgId: string) => sync().data.part[msgId] ?? emptyParts
   const getMsgPart = (messageID: string, partID: string) => getMsgParts(messageID).find((part) => part.id === partID)
+  // Total part count across the session: a cheap monotonic proxy for "the
+  // conversation gained new content", consumed by inline A2A boxes to refetch
+  // their registry records without a reload.
+  const partsRevision = createMemo(() => {
+    const id = sessionID()
+    if (!id) return 0
+    return (sync().data.message[id] ?? []).reduce(
+      (count, message) => count + (sync().data.part[message.id]?.length ?? 0),
+      0,
+    )
+  })
   const childTaskDescription = createMemo(() => {
     const id = sessionID()
     if (!id) return
@@ -1091,6 +1102,7 @@ export function MessageTimeline(props: {
                       taskId={taskId()}
                       thread={a2aLive().threadFor(taskId())}
                       onSizeChange={onSizeChange}
+                      revision={partsRevision}
                     />
                   )}
                 </Show>

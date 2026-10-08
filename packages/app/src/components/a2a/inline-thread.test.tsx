@@ -4,7 +4,7 @@ import { render } from "solid-js/web"
 import type { A2AThreadData } from "@/a2a/thread-store"
 import { LanguageProvider } from "@/context/language"
 import { PlatformProvider, type Platform } from "@/context/platform"
-import { A2AInlineThread, createInlineThreadFold, inlineThreadSignature } from "./inline-thread"
+import { A2AInlineThread, a2aTaskRunning, createInlineThreadFold, inlineThreadSignature } from "./inline-thread"
 
 const fixture: A2AThreadData = {
   taskId: "t1",
@@ -37,6 +37,17 @@ describe("A2AInlineThread fold logic", () => {
     expect(inlineThreadSignature(fixture)).toBe("2:3")
     expect(inlineThreadSignature({ ...fixture, turns: fixture.turns.slice(0, 1) })).toBe("1:3")
     expect(inlineThreadSignature({ ...fixture, states: [] })).toBe("2:0")
+  })
+})
+
+describe("a2aTaskRunning", () => {
+  test("only in-flight states keep the registry poll alive", () => {
+    expect(a2aTaskRunning("TASK_STATE_SUBMITTED")).toBe(true)
+    expect(a2aTaskRunning("TASK_STATE_WORKING")).toBe(true)
+    expect(a2aTaskRunning("TASK_STATE_INPUT_REQUIRED")).toBe(false)
+    expect(a2aTaskRunning("TASK_STATE_COMPLETED")).toBe(false)
+    expect(a2aTaskRunning("TASK_STATE_FAILED")).toBe(false)
+    expect(a2aTaskRunning(undefined)).toBe(false)
   })
 })
 
