@@ -5,6 +5,7 @@ import { A2AClient, type Message, type Task, type TaskState } from "a2a"
 import type { A2AConfig } from "../src/config.ts"
 import type { A2AEventEmitter } from "../src/events.ts"
 import { startInboundServer } from "../src/inbound.ts"
+import type { Registry } from "../src/registry.ts"
 import type { SessionRunner } from "../src/session.ts"
 
 export type EmittedEvent = { type: string; properties: Record<string, unknown> }
@@ -48,8 +49,13 @@ export function fakeRunner(
   return { runner, runs, peers, aborted, overlapped: () => overlapped }
 }
 
-export function startBridge(runner: SessionRunner, overrides?: Partial<A2AConfig>, emit?: A2AEventEmitter) {
-  const inbound = startInboundServer({ config: configFor(overrides), runner, emit })
+export function startBridge(
+  runner: SessionRunner,
+  overrides?: Partial<A2AConfig>,
+  emit?: A2AEventEmitter,
+  registry?: Registry,
+) {
+  const inbound = startInboundServer({ config: configFor(overrides), runner, emit, registry })
   const baseUrl = `http://localhost:${inbound.port}`
   return { ...inbound, baseUrl, client: new A2AClient({ baseUrl }) }
 }

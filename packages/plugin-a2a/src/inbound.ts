@@ -9,6 +9,7 @@ import {
 } from "a2a"
 import { CAP_MESSAGE, type A2AConfig } from "./config.ts"
 import { noopEmitter, type A2AEventEmitter } from "./events.ts"
+import type { Registry } from "./registry.ts"
 import { isSessionAborted, type SessionRunner } from "./session.ts"
 
 // One entry per A2A task id. sessionID lands here after the first successful
@@ -18,13 +19,19 @@ type InboundState = {
   sessionID?: string
   tracker: ConversationTracker
   queue: Promise<void>
+  emit: A2AEventEmitter
 }
 
 // Serves inbound A2A tasks through local opencode sessions: the A2A server
 // records work and notifies, this bridge runs it (fire-and-forget, because
 // onMessage is synchronous) and writes replies and status transitions back via
 // appendMessage/setStatus so open streams and tasks/get observe them.
-export function startInboundServer(input: { config: A2AConfig; runner: SessionRunner; emit?: A2AEventEmitter }): {
+export function startInboundServer(input: {
+  config: A2AConfig
+  runner: SessionRunner
+  emit?: A2AEventEmitter
+  registry?: Registry
+}): {
   stop: () => void
   port: number
   cancel: (taskId: string) => Promise<boolean>
@@ -70,8 +77,10 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
   }
 
   // Every task transition the bridge writes also leaves as an a2a.task.* event
-  // so the UI thread view tracks the wire state without polling.
-  const notify = (task: Task, status: TaskStatus) => {
+  // so the UI thread view tracks the wire state without polling. The task's own
+  // emitter (registry-aware when a registry is present) is used so the session
+  // registry stays in lockstep with the bus.
+  const notify = (emitter: A2AEventEmitter, task: Task, status: TaskStatus) => {
     server.setStatus(task.id, status)
     const properties = {
       taskId: task.id,
@@ -80,19 +89,19 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
       ...(status.message ? { content: messageText(status.message) } : {}),
       ...(status.state === "TASK_STATE_COMPLETED" && task.artifacts?.length ? { artifact: task.artifacts.at(-1) } : {}),
     }
-    if (status.state === "TASK_STATE_COMPLETED") emit("a2a.task.completed", properties)
-    else if (status.state === "TASK_STATE_FAILED") emit("a2a.task.failed", properties)
-    else emit("a2a.task.updated", properties)
+    if (status.state === "TASK_STATE_COMPLETED") emitter("a2a.task.completed", properties)
+    else if (status.state === "TASK_STATE_FAILED") emitter("a2a.task.failed", properties)
+    else emitter("a2a.task.updated", properties)
   }
 
   const respond = async (state: InboundState, task: Task, message: Message) => {
     if (settled(task.status.state)) return
     const text = messageText(message).trim()
     if (!text) {
-      notify(task, failed("message contained no text"))
+      notify(state.emit, task, failed("message contained no text"))
       return
     }
-    notify(task, { state: "TASK_STATE_WORKING" })
+    notify(state.emit, task, { state: "TASK_STATE_WORKING" })
     let run: { sessionID: string; text: string }
     try {
       run = await runWithTimeout(task.id, text, peerOf(task))
@@ -105,13 +114,14 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
         await cancel(task.id)
         return
       }
-      notify(task, failed(reason(error)))
+      notify(state.emit, task, failed(reason(error)))
       return
     }
     // A cancel may have settled the task while the session ran; never write a
     // late reply onto a settled task.
     if (settled(task.status.state)) return
     state.sessionID = run.sessionID
+    input.registry?.setSession(task.id, run.sessionID)
     const reply: Message = {
       messageId: crypto.randomUUID(),
       role: "ROLE_AGENT",
@@ -120,7 +130,7 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
     server.appendMessage(task.id, reply)
     const note = state.tracker.note(reply, "local")
     if (note.kind === "added")
-      emit("a2a.conversation.turn", {
+      state.emit("a2a.conversation.turn", {
         speaker: "local",
         turn: note.turn.index,
         taskId: task.id,
@@ -137,11 +147,11 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
         name: "verdict",
         parts: [{ text: run.text }],
       })
-      notify(task, {
+      notify(state.emit, task, {
         state: "TASK_STATE_COMPLETED",
         message: { messageId: crypto.randomUUID(), role: "ROLE_AGENT", parts: [{ text: CAP_MESSAGE }] },
       })
-    } else notify(task, { state: "TASK_STATE_INPUT_REQUIRED" })
+    } else notify(state.emit, task, { state: "TASK_STATE_INPUT_REQUIRED" })
   }
 
   const onMessage = (task: Task, message: Message) => {
@@ -149,12 +159,13 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
     const state: InboundState = states.get(task.id) ?? {
       tracker: new ConversationTracker({ taskId: task.id }),
       queue: Promise.resolve(),
+      emit: input.registry?.attach(emit, { direction: "inbound", origin: "peer", peerId: peerOf(task) }) ?? emit,
     }
     states.set(task.id, state)
-    if (!known) emit("a2a.task.dispatched", { taskId: task.id, peerId: peerOf(task), state: task.status.state })
+    if (!known) state.emit("a2a.task.dispatched", { taskId: task.id, peerId: peerOf(task), state: task.status.state })
     const note = state.tracker.note(message, "remote")
     if (note.kind === "added")
-      emit("a2a.conversation.turn", {
+      state.emit("a2a.conversation.turn", {
         speaker: "remote",
         turn: note.turn.index,
         taskId: task.id,
@@ -165,7 +176,8 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
       // The server recorded the duplicate and reset an INPUT_REQUIRED task to
       // SUBMITTED; put it back so the retried delivery sees the same settled
       // turn without re-running the session or appending the reply twice.
-      if (task.status.state === "TASK_STATE_SUBMITTED") notify(task, { state: "TASK_STATE_INPUT_REQUIRED" })
+      if (task.status.state === "TASK_STATE_SUBMITTED")
+        notify(state.emit, task, { state: "TASK_STATE_INPUT_REQUIRED" })
       return
     }
     state.queue = state.queue.then(() => respond(state, task, message))
@@ -174,12 +186,14 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
   server = new A2AServer({
     // Deferred so the card reports the port Bun.serve actually bound (0 asks
     // for an ephemeral port, which peers only learn from the card).
-    card: () => cardFor(port),
+    card: () => cardFor(port, input.config.name),
     onMessage,
     onCancel: (task) => {
       // The server already transitioned the task; echo it so CANCELED reaches
-      // the UI stream like every other state change.
-      emit("a2a.task.updated", { taskId: task.id, peerId: peerOf(task), state: "TASK_STATE_CANCELED" })
+      // the UI stream like every other state change. Use the task's own emitter
+      // so the registry records the cancel too.
+      const emitter = states.get(task.id)?.emit ?? emit
+      emitter("a2a.task.updated", { taskId: task.id, peerId: peerOf(task), state: "TASK_STATE_CANCELED" })
       return input.runner.abort(task.id)
     },
   })
@@ -193,9 +207,11 @@ export function startInboundServer(input: { config: A2AConfig; runner: SessionRu
   return { stop: () => listener.stop(true), port, cancel }
 }
 
-function cardFor(port: number): AgentCard {
+function cardFor(port: number, name?: string): AgentCard {
   return {
-    name: "opencode",
+    // A2A-013: the card name is the configured self-identity (the same value
+    // peers receive in the x-a2a-peer header), falling back to "opencode".
+    name: name ?? "opencode",
     description: "Hold a multi-turn conversation with a local opencode agent",
     version: "1.0.0",
     supportedInterfaces: [{ url: `http://localhost:${port}/`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],

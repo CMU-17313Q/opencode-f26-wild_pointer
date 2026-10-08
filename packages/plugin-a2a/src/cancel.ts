@@ -39,7 +39,8 @@ export function createCanceller(input: {
       } catch {
         // Unreachable or already settled peers still end the local thread.
       }
-      emit("a2a.task.updated", { ...properties, peerId: conversation.peerId })
+      const emitter = conversation.emit ?? emit
+      emitter("a2a.task.updated", { ...properties, peerId: conversation.peerId })
       emitted = true
     }
     const local = input.local?.()

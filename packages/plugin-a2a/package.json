@@ -18,6 +18,7 @@
   "dependencies": {
     "@opencode-ai/plugin": "workspace:*",
     "a2a": "workspace:*",
+    "jsonc-parser": "3.3.1",
     "opencode": "workspace:*",
     "zod": "catalog:"
   },
