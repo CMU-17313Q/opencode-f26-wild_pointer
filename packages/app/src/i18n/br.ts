@@ -1254,6 +1254,8 @@ export const dict = {
   "a2a.settings.peers.test.error": "Could not fetch the agent card",
   "a2a.settings.peers.add.error": "Could not add the peer",
   "a2a.settings.peers.invalid": "Enter a name and URL",
+  "a2a.settings.self.label": "Listening socket",
+  "a2a.settings.self.description": "Share this with a peer so they can add you to their allowedPeers.",
   "a2a.settings.identity.title": "Own identity",
   "a2a.settings.identity.description": "The name this directory sends to peers.",
   "a2a.settings.identity.unknown": "No name configured",

@@ -65,6 +65,14 @@ export interface A2APeerTestResult {
   description: string
 }
 
+// GET /a2a/self: this instance's inbound socket, ready to hand to a peer.
+export interface A2ASelf {
+  enabled: boolean
+  name?: string
+  listenPort: number
+  url?: string
+}
+
 // `kind` lets the UI localize the failure; `message` carries the plugin's own
 // `{error}` text when it provided one (already human-readable).
 export type A2AControlErrorKind = "port" | "network" | "http"
@@ -179,6 +187,7 @@ export function createA2AControl(options: A2AControlOptions) {
       run<{ peers: A2APeer[] }>(`/a2a/peers/${encodeURIComponent(name)}`, { method: "DELETE" }).then((x) => x.peers),
     testPeer: (name: string) =>
       run<A2APeerTestResult>(`/a2a/peers/${encodeURIComponent(name)}/test`, { method: "POST" }),
+    self: () => run<A2ASelf>("/a2a/self", { method: "GET" }),
   }
 }
 

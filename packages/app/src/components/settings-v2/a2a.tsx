@@ -2,7 +2,7 @@ import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { For, Show, createMemo, onMount, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
-import { ADMIN_PORT_PATH, A2AControlError, createA2AControl, pluginIdentityFromConfig, type A2APeer } from "@/a2a/control"
+import { ADMIN_PORT_PATH, A2AControlError, createA2AControl, pluginIdentityFromConfig, type A2APeer, type A2ASelf } from "@/a2a/control"
 import { useLanguage } from "@/context/language"
 import { useServerSDK } from "@/context/server-sdk"
 import { showToast } from "@/utils/toast"
@@ -48,6 +48,7 @@ export const SettingsA2AV2: Component<{ directory?: string }> = (props) => {
     testErrors: {} as Record<string, boolean>,
     identity: undefined as string | undefined,
     identityRead: false,
+    self: undefined as A2ASelf | undefined,
   })
 
   const errorText = (error: unknown) => {
@@ -67,10 +68,10 @@ export const SettingsA2AV2: Component<{ directory?: string }> = (props) => {
     }
     setStore("loading", true)
     try {
-      const peers = await client.listPeers()
-      setStore({ peers, running: true, loading: false })
+      const [peers, self] = await Promise.all([client.listPeers(), client.self().catch(() => undefined)])
+      setStore({ peers, self, running: true, loading: false })
     } catch {
-      setStore({ peers: [], running: false, loading: false })
+      setStore({ peers: [], self: undefined, running: false, loading: false })
     }
   }
 
@@ -178,6 +179,16 @@ export const SettingsA2AV2: Component<{ directory?: string }> = (props) => {
               >
                 <span class="text-12-regular text-text-strong">{store.peers.length}</span>
               </SettingsRowV2>
+              <Show when={store.self?.url}>
+                <SettingsRowV2
+                  title={language.t("a2a.settings.self.label")}
+                  description={language.t("a2a.settings.self.description")}
+                >
+                  <span class="break-all font-mono text-11-regular text-text-strong">
+                    {store.self?.name ? `"${store.self.name}": "${store.self.url}"` : store.self?.url}
+                  </span>
+                </SettingsRowV2>
+              </Show>
               <SettingsRowV2
                 title={language.t("a2a.settings.identity.title")}
                 description={language.t("a2a.settings.identity.description")}
