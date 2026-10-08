@@ -1,10 +1,17 @@
-// Folds the live `a2a.*` bus events into per-taskId threads so the session
-// timeline can render each initiated conversation inline. The reducer itself
-// lives in `thread-store.ts`; this module only owns the single bus subscription.
+// Captures the live `a2a.*` bus events into per-taskId threads so the session
+// timeline can render each initiated conversation inline.
+//
+// The capture subscribes on the server-level event bus (keyed by directory)
+// instead of the ref-counted directory SDK context, and keeps its store for the
+// lifetime of the page. Route churn (draft -> session) or context re-creation
+// must not drop events, otherwise the first conversation of a brand-new session
+// is missed while the page transitions. Stores are shared per (server,
+// directory) so every consumer sees the same capture.
 
-import { onCleanup } from "solid-js"
+import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useSDK } from "@/context/sdk"
+import { useServerSDK } from "@/context/server-sdk"
 import { applyA2AEvent, threadFor, type A2AThreadData, type A2AThreads } from "./thread-store"
 
 // Structural view of the fields the inline anchor needs. Kept minimal so tests
@@ -32,16 +39,34 @@ export function a2aInlineTaskId(part: A2AAskPart | undefined): string | undefine
   return taskId
 }
 
-export function createLiveThreads() {
+export type LiveThreads = {
+  threadFor: (taskId: string) => A2AThreadData
+}
+
+// Page-lifetime stores: intentionally never disposed. Bounded by the number of
+// (server, directory) pairs a page visits, and immune to the ref-counted
+// directory SDK context being torn down mid-navigation.
+const liveStores = new Map<string, LiveThreads>()
+
+export function useLiveThreads() {
   const sdk = useSDK()
-  const [live, setLive] = createStore<{ threads: A2AThreads }>({ threads: {} })
+  const serverSDK = useServerSDK()
 
-  const stop = sdk().event.listen((event) => {
-    const details = event.details as { type?: string; properties?: unknown }
-    if (details.type === undefined || !details.type.startsWith("a2a.")) return
-    setLive("threads", (threads) => applyA2AEvent(threads, details.type as string, details.properties))
+  return createMemo<LiveThreads>(() => {
+    const directory = sdk().directory
+    const key = `${serverSDK().url}\u0000${directory}`
+    const cached = liveStores.get(key)
+    if (cached) return cached
+
+    const [store, setStore] = createStore<{ threads: A2AThreads }>({ threads: {} })
+    serverSDK().event.on(directory, (event) => {
+      const type = event?.type
+      if (typeof type !== "string" || !type.startsWith("a2a.")) return
+      setStore("threads", (threads) => applyA2AEvent(threads, type, event.properties))
+    })
+
+    const entry: LiveThreads = { threadFor: (taskId) => threadFor(store.threads, taskId) }
+    liveStores.set(key, entry)
+    return entry
   })
-  onCleanup(stop)
-
-  return { threadFor: (taskId: string): A2AThreadData => threadFor(live.threads, taskId) }
 }

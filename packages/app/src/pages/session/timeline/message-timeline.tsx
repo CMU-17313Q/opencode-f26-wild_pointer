@@ -52,7 +52,7 @@ import type {
   ToolPart,
   UserMessage,
 } from "@opencode-ai/sdk/v2"
-import { a2aInlineTaskId, createLiveThreads } from "@/a2a/live-threads"
+import { a2aInlineTaskId, useLiveThreads } from "@/a2a/live-threads"
 import { A2AInlineThread } from "@/components/a2a/inline-thread"
 import { showToast } from "@/utils/toast"
 import { downloadSessionExport, fetchSessionExport, sessionExportFilename } from "@/utils/session-export"
@@ -268,7 +268,7 @@ export function MessageTimeline(props: {
   const tabs = useTabs()
   const dialog = useDialog()
   const language = useLanguage()
-  const a2aLive = createLiveThreads()
+  const a2aLive = useLiveThreads()
   const { params, sessionKey } = useSessionKey()
   const ownerSessionKey = sessionKey()
   const cached = timelineCache.get(ownerSessionKey)
@@ -1087,10 +1087,10 @@ export function MessageTimeline(props: {
                 />
                 <Show when={a2aInlineTaskId(part())}>
                   {(taskId) => (
-                    <Show when={a2aLive.threadFor(taskId()).turns.length > 0}>
+                    <Show when={a2aLive().threadFor(taskId()).turns.length > 0}>
                       <A2AInlineThread
                         taskId={taskId()}
-                        thread={a2aLive.threadFor(taskId())}
+                        thread={a2aLive().threadFor(taskId())}
                         onSizeChange={onSizeChange}
                       />
                     </Show>
