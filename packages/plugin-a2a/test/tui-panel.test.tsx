@@ -37,11 +37,13 @@ const TURNS = [
 
 const PEERS = [{ name: "peer-a", url: "http://127.0.0.1:9999" }]
 
+const replies: string[] = []
+
 function serveAdmin() {
   return Bun.serve({
     port: 0,
     hostname: "127.0.0.1",
-    fetch(req) {
+    async fetch(req) {
       const url = new URL(req.url)
       if (url.pathname === "/a2a/sessions") return Response.json({ sessions: [SESSION] })
       const match = url.pathname.match(/^\/a2a\/sessions\/(.+)$/)
@@ -49,6 +51,12 @@ function serveAdmin() {
         const taskId = decodeURIComponent(match[1])
         if (taskId !== SESSION.taskId) return Response.json({ error: "not found" }, { status: 404 })
         return Response.json({ session: SESSION, turns: TURNS })
+      }
+      const message = url.pathname.match(/^\/a2a\/conversations\/(.+)\/messages$/)
+      if (message && req.method === "POST") {
+        const body = await req.json()
+        replies.push(String((body as { text: string }).text))
+        return Response.json({ session: SESSION })
       }
       if (url.pathname === "/a2a/peers") {
         return Response.json({
@@ -242,7 +250,7 @@ test("a2a.sessions lists registry rows and opens the thread", async () => {
     const frame = panel.frame()
     expect(frame).toContain("A2A sessions")
     expect(frame).toContain("peer-a")
-    expect(frame).toContain("waiting")
+    expect(frame).toContain("your turn")
     expect(frame).toContain("New conversation")
     expect(frame).toContain("Manage peers")
 
@@ -261,6 +269,17 @@ test("a2a.sessions lists registry rows and opens the thread", async () => {
       content: "follow up",
     })
     await waitForFrame(panel.app, "follow up")
+
+    // Thread bindings are live (not shadowed by the dialog's modal mode):
+    // m opens the reply prompt and submits to POST /conversations/:id/messages.
+    panel.app.mockInput.pressKey("m")
+    await waitForFrame(panel.app, "Reply ·", 2000)
+    panel.app.mockInput.typeText("next turn")
+    panel.app.mockInput.pressEnter()
+    await Bun.sleep(300)
+    await panel.app.renderOnce()
+    expect(replies).toEqual(["next turn"])
+    await waitForFrame(panel.app, "peer-a", 2000)
   } finally {
     await panel.cleanup()
     server.stop(true)

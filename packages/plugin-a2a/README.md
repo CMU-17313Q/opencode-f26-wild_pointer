@@ -95,9 +95,10 @@ Once loaded, the TUI picks up three palette commands, each reachable from the pr
 - **A2A: Sessions** (`/a2a`) — current and past tasks (peer, direction, state, turns, age; running
   on top). Running it while the panel is open closes it again. Enter opens the live thread: turns
   in order with speaker labels, the state chip, the verdict artifact when present, and the turn-cap
-  message rendered as the bounded ending rather than an error. Inside a thread: `m`/`enter` reply,
-  `x` cancel a running task, `b`/`backspace` back, arrows/`pageup`/`pagedown` scroll, `r` refresh,
-  `esc` close.
+  message rendered as the bounded ending rather than an error. `INPUT_REQUIRED` reads as `your turn`
+  on outbound tasks (the peer is waiting for your reply) and `awaiting input` inbound. Inside a
+  thread: `m`/`enter` reply (outbound + `INPUT_REQUIRED` only), `x` cancel a running task,
+  `b`/`backspace` back, arrows/`pageup`/`pagedown` scroll, `r` refresh, `esc` close.
 - **A2A: New conversation** (`/a2a-new`) — peer picker (configured `allowedPeers` plus names seen in
   sessions) then a message prompt. Follow-ups reuse the same `taskId`.
 - **A2A: Peers** (`/a2a-peers`) — the `allowedPeers` map plus your own identity and listener status.

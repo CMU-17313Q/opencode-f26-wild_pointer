@@ -38,14 +38,17 @@ export function canCancel(state: TaskState): boolean {
   return isActive(state)
 }
 
-export function stateLabel(state: TaskState): string {
+// INPUT_REQUIRED direction matters to the reader: on an outbound task the
+// peer is waiting for the user's reply ("your turn"); on an inbound task the
+// remote is waiting on this instance.
+export function stateLabel(state: TaskState, direction?: string): string {
   switch (state) {
     case "TASK_STATE_SUBMITTED":
       return "submitted"
     case "TASK_STATE_WORKING":
       return "working"
     case "TASK_STATE_INPUT_REQUIRED":
-      return "waiting for reply"
+      return direction === "inbound" ? "awaiting input" : "your turn"
     case "TASK_STATE_COMPLETED":
       return "completed"
     case "TASK_STATE_FAILED":

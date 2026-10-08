@@ -34,10 +34,10 @@ import {
 import {
   artifactText,
   canCancel,
+  canContinue,
   directionMark,
   formatAge,
   isCapMessage,
-  isTerminal,
   mergePeers,
   sessionPeer,
   shortId,
@@ -48,7 +48,6 @@ import {
   type StateTone,
 } from "./format.ts"
 
-const MODE = "a2a"
 const POLL_MS = 2500
 
 type LiveTask = { state?: TaskState; content?: string; artifact?: Artifact }
@@ -190,7 +189,7 @@ function SessionsView(props: { panel: Panel }) {
         .filter((part) => part)
         .join(" · "),
       footer: (
-        <span style={{ fg: toneColor(api, stateTone(session.state)) }}>{stateLabel(session.state)}</span>
+        <span style={{ fg: toneColor(api, stateTone(session.state)) }}>{stateLabel(session.state, session.direction)}</span>
       ),
     })),
     {
@@ -435,7 +434,6 @@ function ThreadView(props: { panel: Panel; taskId: string }) {
   const [error, setError] = createSignal("")
   let box: ScrollBoxRenderable | undefined
 
-  onCleanup(api.mode.push(MODE))
   api.ui.dialog.setSize("xlarge")
 
   const refresh = async () => {
@@ -470,6 +468,7 @@ function ThreadView(props: { panel: Panel; taskId: string }) {
   onCleanup(() => clearInterval(timer))
 
   const state = () => props.panel.live(props.taskId)?.state ?? session()?.state ?? "TASK_STATE_UNSPECIFIED"
+  const replyable = () => canContinue(state()) && session()?.direction === "outbound"
   const liveContent = () => props.panel.live(props.taskId)?.content ?? session()?.content
   const artifact = () => props.panel.live(props.taskId)?.artifact ?? session()?.artifact
   const turns = () => props.panel.turns(props.taskId)
@@ -506,10 +505,9 @@ function ThreadView(props: { panel: Panel; taskId: string }) {
 
   onCleanup(
     api.keymap.registerLayer({
-      mode: MODE,
       bindings: [
-        { key: "m", desc: "Reply", group: "A2A", cmd: () => void sendReply() },
-        { key: "return", desc: "Reply", group: "A2A", cmd: () => void sendReply() },
+        { key: "m", desc: "Reply", group: "A2A", cmd: () => { if (replyable()) void sendReply() } },
+        { key: "return", desc: "Reply", group: "A2A", cmd: () => { if (replyable()) void sendReply() } },
         {
           key: "x",
           desc: "Cancel task",
@@ -543,7 +541,7 @@ function ThreadView(props: { panel: Panel; taskId: string }) {
         </text>
       </box>
       <box flexDirection="row" gap={2} paddingLeft={2} paddingRight={2}>
-        <text fg={toneColor(api, stateTone(state()))}>{stateLabel(state())}</text>
+        <text fg={toneColor(api, stateTone(state()))}>{stateLabel(state(), session()?.direction)}</text>
         <Show when={isCapMessage(liveContent())}>
           <text fg={theme.textMuted}>{liveContent()}</text>
         </Show>
@@ -606,7 +604,7 @@ function ThreadView(props: { panel: Panel; taskId: string }) {
         items={
           status() === "ready"
             ? [
-                ...(isTerminal(state()) ? [] : ([["m", "reply"]] as const)),
+                ...(replyable() ? ([["m", "reply"]] as const) : []),
                 ...(canCancel(state()) ? ([["x", "cancel"]] as const) : []),
                 ["b", "sessions"],
                 ["r", "refresh"],
