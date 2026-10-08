@@ -130,3 +130,10 @@ add/remove is in-memory only — the real control plane writes `allowedPeers` ba
 bun test
 bun typecheck
 ```
+
+`test/tui-panel.test.tsx` renders the panel headlessly (OpenTUI's `testRender`) against a fake
+`/a2a/*` control server — sessions list → thread, live `a2a.*` events, peers, and the `ctrl+alt+a`
+binding — so most panel changes don't need a manual TUI run. One constraint it surfaces: view
+components pushed to `dialog.replace` must return an intrinsic element (e.g. `<box>`) at the top
+level — returning `<Show>`/another component leaks signal reads into the dialog thunk's tracked
+scope and remounts the view on every state change.
