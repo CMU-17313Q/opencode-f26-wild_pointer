@@ -756,6 +756,17 @@ const tui: TuiPlugin = async (api) => {
     })()
   }
 
+  // Tracks which panel view owns the dialog stack so the shortcut can toggle
+  // it closed. replace() runs the previous item's onClose, clearing `open`
+  // whenever a different dialog takes over.
+  let open: "sessions" | "peers" | "thread" | undefined
+  const openView = (kind: NonNullable<typeof open>, view: () => JSX.Element) => {
+    api.ui.dialog.replace(view, () => {
+      if (open === kind) open = undefined
+    })
+    open = kind
+  }
+
   const panel: Panel = {
     api,
     control,
@@ -829,9 +840,21 @@ const tui: TuiPlugin = async (api) => {
       }),
     busy: (title, text) => api.ui.dialog.replace(() => <BusyView panel={panel} title={title} text={text} />),
     toast: (message, variant = "info") => api.ui.toast({ message, variant }),
-    showSessions: () => api.ui.dialog.replace(() => <SessionsView panel={panel} />),
-    showPeers: () => api.ui.dialog.replace(() => <PeersView panel={panel} />),
-    showThread: (taskId) => api.ui.dialog.replace(() => <ThreadView panel={panel} taskId={taskId} />),
+    showSessions: () => {
+      if (open === "sessions") {
+        api.ui.dialog.clear()
+        return
+      }
+      openView("sessions", () => <SessionsView panel={panel} />)
+    },
+    showPeers: () => {
+      if (open === "peers") {
+        api.ui.dialog.clear()
+        return
+      }
+      openView("peers", () => <PeersView panel={panel} />)
+    },
+    showThread: (taskId) => openView("thread", () => <ThreadView panel={panel} taskId={taskId} />),
     startFlow,
   }
 

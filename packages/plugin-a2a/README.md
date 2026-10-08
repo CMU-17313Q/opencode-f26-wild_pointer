@@ -81,14 +81,23 @@ When enabled, the plugin also serves inbound A2A tasks on `listenPort`:
 
 ## TUI panel (A2A-016)
 
-The package ships a `./tui` target (`{ id: "a2a", tui }`) — register the plugin and the TUI picks up
-three palette commands plus a default `ctrl+alt+a` binding for the session list:
+The package ships a `./tui` target (`{ id: "a2a", tui }`). TUI plugins are declared in `tui.json`
+(not `opencode.json`, which only feeds server plugins) — either `<project>/tui.json` or
+`<project>/.opencode/tui.json`:
+
+```json
+{ "plugin": ["file:///absolute/path/to/packages/plugin-a2a"] }
+```
+
+Once loaded, the TUI picks up three palette commands plus a default `ctrl+alt+a` binding for the
+session list:
 
 - **A2A: Sessions** — current and past tasks (peer, direction, state, turns, age; running on top).
-  Enter opens the live thread: turns in order with speaker labels, the state chip, the verdict
-  artifact when present, and the turn-cap message rendered as the bounded ending rather than an
-  error. Inside a thread: `m`/`enter` reply, `x` cancel a running task, `b`/`backspace` back,
-  arrows/`pageup`/`pagedown` scroll, `r` refresh, `esc` close.
+  Pressing `ctrl+alt+a` while the panel is open closes it again. Enter opens the live thread: turns
+  in order with speaker labels, the state chip, the verdict artifact when present, and the turn-cap
+  message rendered as the bounded ending rather than an error. Inside a thread: `m`/`enter` reply,
+  `x` cancel a running task, `b`/`backspace` back, arrows/`pageup`/`pagedown` scroll, `r` refresh,
+  `esc` close.
 - **A2A: New conversation** — peer picker (configured `allowedPeers` plus names seen in sessions)
   then a message prompt. Follow-ups reuse the same `taskId`.
 - **A2A: Peers** — the `allowedPeers` map plus your own identity and listener status. Enter on a

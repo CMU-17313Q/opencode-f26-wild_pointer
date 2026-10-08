@@ -286,7 +286,7 @@ test("a2a.peers lists allowedPeers and own identity", async () => {
   }
 })
 
-test("ctrl+alt+a binding opens the sessions panel", async () => {
+test("ctrl+alt+a binding toggles the sessions panel", async () => {
   await using tmp = await tmpdir()
   const server = serveAdmin()
   await mkdir(path.join(tmp.path, ".opencode/a2a"), { recursive: true })
@@ -294,6 +294,29 @@ test("ctrl+alt+a binding opens the sessions panel", async () => {
 
   const panel = await mountPanel({ root: tmp.path })
   try {
+    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    await waitForFrame(panel.app, "A2A sessions", 2000)
+
+    // pressing again while the panel is open toggles it closed
+    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    await Bun.sleep(150)
+    await panel.app.renderOnce()
+    expect(panel.frame()).not.toContain("A2A sessions")
+
+    panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
+    await waitForFrame(panel.app, "A2A sessions", 2000)
+
+    // letters land in the open dialog's filter input, not the palette
+    panel.app.mockInput.typeText("A2A")
+    await Bun.sleep(150)
+    await panel.app.renderOnce()
+    expect(panel.frame()).toContain("No results found")
+
+    panel.app.mockInput.pressEscape()
+    await Bun.sleep(150)
+    await panel.app.renderOnce()
+    expect(panel.frame()).not.toContain("A2A sessions")
+
     panel.app.mockInput.pressKey("a", { ctrl: true, meta: true })
     await waitForFrame(panel.app, "A2A sessions", 2000)
   } finally {
