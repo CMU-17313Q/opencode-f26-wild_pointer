@@ -52,6 +52,8 @@ import type {
   ToolPart,
   UserMessage,
 } from "@opencode-ai/sdk/v2"
+import { a2aInlineTaskId, createLiveThreads } from "@/a2a/live-threads"
+import { A2AInlineThread } from "@/components/a2a/inline-thread"
 import { showToast } from "@/utils/toast"
 import { downloadSessionExport, fetchSessionExport, sessionExportFilename } from "@/utils/session-export"
 import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
@@ -266,6 +268,7 @@ export function MessageTimeline(props: {
   const tabs = useTabs()
   const dialog = useDialog()
   const language = useLanguage()
+  const a2aLive = createLiveThreads()
   const { params, sessionKey } = useSessionKey()
   const ownerSessionKey = sessionKey()
   const cached = timelineCache.get(ownerSessionKey)
@@ -1068,19 +1071,32 @@ export function MessageTimeline(props: {
         {(message) => (
           <Show when={part()}>
             {(part) => (
-              <MessagePart
-                part={part()}
-                message={message()}
-                showAssistantCopyPartID={assistantCopyPartID(row().userMessageID)}
-                turnDurationMs={turnDurationMs(row().userMessageID)}
-                useV2Actions={settings.general.newLayoutDesigns()}
-                defaultOpen={defaultOpen()}
-                toolOpen={toolOpen[part().id] ?? defaultOpen()}
-                onToolOpenChange={(open) => setToolOpen(part().id, open)}
-                deferToolContent
-                virtualizeDiff={false}
-                onContentRendered={onSizeChange}
-              />
+              <>
+                <MessagePart
+                  part={part()}
+                  message={message()}
+                  showAssistantCopyPartID={assistantCopyPartID(row().userMessageID)}
+                  turnDurationMs={turnDurationMs(row().userMessageID)}
+                  useV2Actions={settings.general.newLayoutDesigns()}
+                  defaultOpen={defaultOpen()}
+                  toolOpen={toolOpen[part().id] ?? defaultOpen()}
+                  onToolOpenChange={(open) => setToolOpen(part().id, open)}
+                  deferToolContent
+                  virtualizeDiff={false}
+                  onContentRendered={onSizeChange}
+                />
+                <Show when={a2aInlineTaskId(part())}>
+                  {(taskId) => (
+                    <Show when={a2aLive.threadFor(taskId()).turns.length > 0}>
+                      <A2AInlineThread
+                        taskId={taskId()}
+                        thread={a2aLive.threadFor(taskId())}
+                        onSizeChange={onSizeChange}
+                      />
+                    </Show>
+                  )}
+                </Show>
+              </>
             )}
           </Show>
         )}
