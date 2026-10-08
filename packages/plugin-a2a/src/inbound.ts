@@ -92,7 +92,7 @@ export function startInboundServer(input: {
     // follow-ups with -32602. Only the cap closes the conversation. The final
     // reply doubles as the verdict artifact so peers (and the UI) can read the
     // outcome via tasks/get without replaying history.
-    if (state.tracker.history().length >= input.config.maxTurns) {
+    if (input.config.maxTurns > 0 && state.tracker.history().length >= input.config.maxTurns) {
       server.appendArtifact(task.id, {
         artifactId: `${task.id}-verdict`,
         name: "verdict",

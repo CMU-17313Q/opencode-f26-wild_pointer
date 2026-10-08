@@ -78,8 +78,9 @@ describe("resolveConfig", () => {
     expect(config.enabled).toBe(true)
   })
 
-  test("rejects a non-positive maxTurns", () => {
-    expect(() => resolveConfig({ env: {}, options: { maxTurns: 0 } })).toThrow()
+  test("accepts maxTurns 0 as uncapped and rejects negative or fractional", () => {
+    expect(resolveConfig({ env: {}, options: { maxTurns: 0 } }).maxTurns).toBe(0)
+    expect(() => resolveConfig({ env: {}, options: { maxTurns: -1 } })).toThrow()
     expect(() => resolveConfig({ env: {}, options: { maxTurns: 1.5 } })).toThrow()
   })
 

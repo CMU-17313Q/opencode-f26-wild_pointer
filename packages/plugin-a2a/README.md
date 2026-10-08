@@ -44,7 +44,7 @@ With the flag off, the plugin adds no tools and opens no ports.
 | `name`         | unset   | The nickname this instance claims in `x-a2a-peer` and its agent card. Unset peers see your socket address instead. |
 | `listenPort`   | `0`     | Inbound A2A server port. `0` binds an ephemeral port, reported to peers through the agent card. |
 | `allowedPeers` | `{}`    | Map of peer id to base URL. `a2a_ask` refuses peers that are not listed.                        |
-| `maxTurns`     | `4`     | Total conversation turns (all messages, both speakers) before the cap is reached.               |
+| `maxTurns`     | `4`     | Total conversation turns (all messages, both speakers) before the cap is reached. `0` means unbounded — the conversation stays open until a peer completes or cancels the task.               |
 | `agent`        | unset   | Agent for inbound prompts; unset uses the opencode default.                                     |
 | `model`        | unset   | Model for inbound prompts as `provider/model`; unset uses the agent's default model.            |
 
@@ -131,7 +131,7 @@ OPENCODE_A2A_ADMIN_URL=http://127.0.0.1:<port>  # or set it explicitly
 ```
 
 It exposes a `loop` peer pointing at its own inbound server, so "New conversation → loop → message"
-produces a real 4-turn exchange ending in `TASK_STATE_COMPLETED` with a verdict artifact. Peer
+produces a real exchange that stays open until you cancel it (`x`). Set `A2A_STUB_TURNS=N` to restore a cap and exercise the `TASK_STATE_COMPLETED` + verdict path. Peer
 add/remove is in-memory only — the real control plane writes `allowedPeers` back to `opencode.json`.
 
 ## Develop

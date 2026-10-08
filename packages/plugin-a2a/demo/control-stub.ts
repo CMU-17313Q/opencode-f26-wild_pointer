@@ -133,7 +133,10 @@ const runner: SessionRunner = {
   async abort() {},
 }
 
-const config: A2AConfig = { enabled: true, name: selfName, listenPort: peerPort, allowedPeers: {}, maxTurns: 4 }
+// Unbounded by default so panel conversations run until someone cancels;
+// A2A_STUB_TURNS=N restores a cap to exercise the verdict path.
+const maxTurns = Number(process.env.A2A_STUB_TURNS ?? 0)
+const config: A2AConfig = { enabled: true, name: selfName, listenPort: peerPort, allowedPeers: {}, maxTurns }
 const inbound = startInboundServer({ config, runner, emit: record("inbound") })
 const selfUrl = `http://127.0.0.1:${inbound.port}`
 config.allowedPeers = { loop: selfUrl }

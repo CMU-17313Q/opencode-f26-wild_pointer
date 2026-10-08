@@ -110,7 +110,8 @@ async function ask(deps: AskDeps, args: AskArgs): Promise<ToolResult> {
 
   const conversation = await resolveConversation(deps, args, baseUrl)
   const tracker = conversation.tracker
-  if (tracker && tracker.history().length >= deps.config.maxTurns) return capResult(deps, args, tracker)
+  if (tracker && deps.config.maxTurns > 0 && tracker.history().length >= deps.config.maxTurns)
+    return capResult(deps, args, tracker)
 
   const outgoing: Message = {
     messageId: crypto.randomUUID(),
@@ -352,12 +353,13 @@ async function supportsStreaming(client: A2AClient): Promise<boolean> {
 
 function renderResult(deps: AskDeps, args: AskArgs, conversation: Conversation, outcome: Outcome): ToolResult {
   const tracker = conversation.tracker
+  const turn = tracker ? turnLabel(deps.config, tracker.history().length) : undefined
   const lines = [`Peer: ${args.peer}`]
-  if (tracker) lines.push(`Task: ${tracker.taskId}`, `Turn: ${tracker.history().length}/${deps.config.maxTurns}`)
+  if (tracker) lines.push(`Task: ${tracker.taskId}`, `Turn: ${turn}`)
   lines.push(outcome.reply ? `Reply: ${outcome.reply}` : "Reply: (none)")
   if (outcome.artifact) lines.push(`Artifact: ${outcome.artifact}`)
   return {
-    title: tracker ? `${args.peer} turn ${tracker.history().length}/${deps.config.maxTurns}` : `${args.peer} reply`,
+    title: tracker ? `${args.peer} turn ${turn}` : `${args.peer} reply`,
     output: lines.join("\n"),
     metadata: {
       peerId: args.peer,
@@ -365,6 +367,10 @@ function renderResult(deps: AskDeps, args: AskArgs, conversation: Conversation, 
       state: outcome.state,
     },
   }
+}
+
+function turnLabel(config: A2AConfig, count: number) {
+  return config.maxTurns > 0 ? `${count}/${config.maxTurns}` : String(count)
 }
 
 function capResult(deps: AskDeps, args: AskArgs, tracker: ConversationTracker): ToolResult {
@@ -379,7 +385,7 @@ function capResult(deps: AskDeps, args: AskArgs, tracker: ConversationTracker): 
     output: [
       `Peer: ${args.peer}`,
       `Task: ${tracker.taskId}`,
-      `Turn: ${tracker.history().length}/${deps.config.maxTurns}`,
+      `Turn: ${turnLabel(deps.config, tracker.history().length)}`,
       CAP_MESSAGE,
     ].join("\n"),
     metadata: {
