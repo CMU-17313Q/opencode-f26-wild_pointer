@@ -45,7 +45,7 @@ export function stateLabel(state: TaskState): string {
     case "TASK_STATE_WORKING":
       return "working"
     case "TASK_STATE_INPUT_REQUIRED":
-      return "waiting"
+      return "waiting for reply"
     case "TASK_STATE_COMPLETED":
       return "completed"
     case "TASK_STATE_FAILED":

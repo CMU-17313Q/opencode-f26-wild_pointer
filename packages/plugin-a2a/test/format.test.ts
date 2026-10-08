@@ -56,7 +56,7 @@ describe("state classification", () => {
 
   test("labels and tones cover every state", () => {
     expect(stateLabel("TASK_STATE_COMPLETED")).toBe("completed")
-    expect(stateLabel("TASK_STATE_INPUT_REQUIRED")).toBe("waiting")
+    expect(stateLabel("TASK_STATE_INPUT_REQUIRED")).toBe("waiting for reply")
     expect(stateLabel("TASK_STATE_UNSPECIFIED")).toBe("unknown")
     expect(stateTone("TASK_STATE_COMPLETED")).toBe("success")
     expect(stateTone("TASK_STATE_FAILED")).toBe("error")
