@@ -1,26 +1,13 @@
-import {
-  A2ATaskEventPropertiesSchema,
-  A2ATurnEventPropertiesSchema,
-  type Artifact,
-  type TaskState,
-  type Turn,
-} from "a2a"
+import { A2ATaskEventPropertiesSchema, A2ATurnEventPropertiesSchema, type TaskState } from "a2a"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { TextareaV2 } from "@opencode-ai/ui/v2/textarea-v2"
 import { For, Show, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
+import { type A2AThreadData } from "@/a2a/thread-store"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 
-export interface A2AThreadData {
-  taskId: string
-  turns: Turn[]
-  states: TaskState[]
-  artifact?: Artifact
-  // Latest task status message (cap notice, failure reason, cancel note) so
-  // terminal states explain themselves without breaking the thread.
-  status?: string
-}
+export type { A2AThreadData }
 
 export interface A2AThreadProps {
   data?: A2AThreadData
@@ -35,6 +22,10 @@ export interface A2AThreadProps {
   onFollowUp?: (text: string) => Promise<void> | void
   followUpPending?: boolean
   followUpDisabled?: boolean
+}
+
+export interface A2AConversationProps {
+  data: A2AThreadData
 }
 
 const empty: A2AThreadData = { taskId: "", turns: [], states: [] }
@@ -52,6 +43,62 @@ function isTerminal(state: TaskState | undefined) {
 
 function isError(state: TaskState | undefined) {
   return state === "TASK_STATE_FAILED" || state === "TASK_STATE_CANCELED"
+}
+
+// Conversation body shared by the bottom thread panel and the inline timeline
+// box: turn cards, state chain, status line, and verdict. The surrounding shell
+// (header, cancel, follow-up composer) stays in A2AThread.
+export function A2AConversation(props: A2AConversationProps) {
+  const language = useLanguage()
+
+  return (
+    <>
+      <div class="flex min-w-0 gap-2 overflow-x-auto pb-1">
+        <For each={props.data.turns}>
+          {(turn) => (
+            <article class="min-w-56 max-w-72 flex-1 rounded-md border border-border-weak-base bg-surface-panel px-3 py-2">
+              <div class="flex items-center justify-between gap-2 text-11-medium text-text-strong">
+                <span>
+                  {turn.peerId ??
+                    language.t(turn.speaker === "local" ? "a2a.thread.peer.local" : "a2a.thread.peer.remote")}
+                </span>
+                <span class="text-text-weak">{language.t("a2a.thread.turn", { turn: turn.index + 1 })}</span>
+              </div>
+              <div class="mt-1 text-11-regular text-text-weak">
+                {turn.speaker} · {turn.taskId ?? props.data.taskId}
+              </div>
+              <p class="mt-2 line-clamp-2 text-12-regular text-text-base">{turn.text}</p>
+            </article>
+          )}
+        </For>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 text-11-regular text-text-weak">
+        <For each={props.data.states}>
+          {(state, index) => (
+            <>
+              <span class={index() === props.data.states.length - 1 ? "text-text-strong" : ""}>{state}</span>
+              <Show when={index() < props.data.states.length - 1}>
+                <span aria-hidden>&gt;</span>
+              </Show>
+            </>
+          )}
+        </For>
+      </div>
+      <Show when={props.data.status}>
+        <div
+          class={`text-11-regular ${isError(props.data.states.at(-1)) ? "text-icon-warning-base" : "text-text-weak"}`}
+        >
+          {props.data.status}
+        </div>
+      </Show>
+      <Show when={props.data.artifact && props.data.states.at(-1) === "TASK_STATE_COMPLETED"}>
+        <div class="border-l-2 border-icon-success-base pl-3 text-12-regular text-text-base">
+          <span class="text-11-medium text-text-strong">{language.t("a2a.thread.verdict")}</span>
+          <div>{props.data.artifact?.parts.map((part) => part.text).join(" ")}</div>
+        </div>
+      </Show>
+    </>
+  )
 }
 
 // Renders the most recent A2A task thread from the a2a.* events the plugin
@@ -141,54 +188,7 @@ export function A2AThread(props: A2AThreadProps) {
               </Show>
             </div>
           </div>
-          <div class="flex min-w-0 gap-2 overflow-x-auto pb-1">
-            <For each={data().turns}>
-              {(turn) => (
-                <article class="min-w-56 max-w-72 flex-1 rounded-md border border-border-weak-base bg-surface-panel px-3 py-2">
-                  <div class="flex items-center justify-between gap-2 text-11-medium text-text-strong">
-                    <span>
-                      {turn.peerId ??
-                        language.t(turn.speaker === "local" ? "a2a.thread.peer.local" : "a2a.thread.peer.remote")}
-                    </span>
-                    <span class="text-text-weak">{language.t("a2a.thread.turn", { turn: turn.index + 1 })}</span>
-                  </div>
-                  <div class="mt-1 text-11-regular text-text-weak">
-                    {turn.speaker} · {turn.taskId ?? data().taskId}
-                  </div>
-                  <p class="mt-2 line-clamp-2 text-12-regular text-text-base">{turn.text}</p>
-                </article>
-              )}
-            </For>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 text-11-regular text-text-weak">
-            <For each={data().states}>
-              {(state, index) => (
-                <>
-                  <span class={index() === data().states.length - 1 ? "text-text-strong" : ""}>{state}</span>
-                  <Show when={index() < data().states.length - 1}>
-                    <span aria-hidden>&gt;</span>
-                  </Show>
-                </>
-              )}
-            </For>
-          </div>
-          <Show when={data().status}>
-            <div
-              class={`text-11-regular ${isError(data().states.at(-1)) ? "text-icon-warning-base" : "text-text-weak"}`}
-            >
-              {data().status}
-            </div>
-          </Show>
-          <Show when={data().artifact && data().states.at(-1) === "TASK_STATE_COMPLETED"}>
-            <div class="border-l-2 border-icon-success-base pl-3 text-12-regular text-text-base">
-              <span class="text-11-medium text-text-strong">{language.t("a2a.thread.verdict")}</span>
-              <div>
-                {data()
-                  .artifact?.parts.map((part) => part.text)
-                  .join(" ")}
-              </div>
-            </div>
-          </Show>
+          <A2AConversation data={data()} />
           <Show when={props.onFollowUp}>
             <form
               class="flex items-end gap-2"
