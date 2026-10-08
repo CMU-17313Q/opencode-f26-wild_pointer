@@ -189,7 +189,9 @@ function SessionsView(props: { panel: Panel }) {
       ]
         .filter((part) => part)
         .join(" · "),
-      footer: <text fg={toneColor(api, stateTone(session.state))}>{stateLabel(session.state)}</text>,
+      footer: (
+        <span style={{ fg: toneColor(api, stateTone(session.state)) }}>{stateLabel(session.state)}</span>
+      ),
     })),
     {
       title: "New conversation",
@@ -211,24 +213,27 @@ function SessionsView(props: { panel: Panel }) {
     props.panel.showThread(option.value.session.taskId)
   }
 
+  // Top-level must be an intrinsic: dialog.replace thunks are unrolled in a
+  // tracked scope, and a component/accessor return value would re-track our
+  // signals there — every state change would remount the whole view.
   return (
-    <Show
-      when={status() === "ready"}
-      fallback={
-        <Notice
-          api={api}
-          title="A2A sessions"
-          message={
-            status() === "loading"
-              ? "Loading sessions…"
-              : status() === "unavailable"
-                ? "A2A control API not reachable. Enable the a2a plugin so its admin endpoint runs, or point OPENCODE_A2A_ADMIN_URL at demo/control-stub.ts."
-                : `A2A control API error: ${error()}`
-          }
-        />
-      }
-    >
-      <box flexDirection="column" flexGrow={1}>
+    <box flexDirection="column" flexGrow={1}>
+      <Show
+        when={status() === "ready"}
+        fallback={
+          <Notice
+            api={api}
+            title="A2A sessions"
+            message={
+              status() === "loading"
+                ? "Loading sessions…"
+                : status() === "unavailable"
+                  ? "A2A control API not reachable. Enable the a2a plugin so its admin endpoint runs, or point OPENCODE_A2A_ADMIN_URL at demo/control-stub.ts."
+                  : `A2A control API error: ${error()}`
+            }
+          />
+        }
+      >
         <api.ui.DialogSelect
           title="A2A sessions"
           placeholder="Filter sessions"
@@ -247,8 +252,8 @@ function SessionsView(props: { panel: Panel }) {
             ["esc", "close"],
           ]}
         />
-      </box>
-    </Show>
+      </Show>
+    </box>
   )
 }
 
@@ -385,23 +390,23 @@ function PeersView(props: { panel: Panel }) {
   }
 
   return (
-    <Show
-      when={status() === "ready"}
-      fallback={
-        <Notice
-          api={api}
-          title="A2A peers"
-          message={
-            status() === "loading"
-              ? "Loading peers…"
-              : status() === "unavailable"
-                ? "A2A control API not reachable."
-                : `A2A control API error: ${error()}`
-          }
-        />
-      }
-    >
-      <box flexDirection="column" flexGrow={1}>
+    <box flexDirection="column" flexGrow={1}>
+      <Show
+        when={status() === "ready"}
+        fallback={
+          <Notice
+            api={api}
+            title="A2A peers"
+            message={
+              status() === "loading"
+                ? "Loading peers…"
+                : status() === "unavailable"
+                  ? "A2A control API not reachable."
+                  : `A2A control API error: ${error()}`
+            }
+          />
+        }
+      >
         <api.ui.DialogSelect title="A2A peers" placeholder="Filter peers" options={rows()} onSelect={pick} />
         <box paddingLeft={4} flexDirection="column">
           <Show when={self()}>{(label) => <text fg={theme.textMuted}>{label()}</text>}</Show>
@@ -416,8 +421,8 @@ function PeersView(props: { panel: Panel }) {
             ["esc", "close"],
           ]}
         />
-      </box>
-    </Show>
+      </Show>
+    </box>
   )
 }
 
