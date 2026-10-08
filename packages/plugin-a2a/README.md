@@ -58,7 +58,8 @@ a2a_ask({ peer: string, message: string, taskId?: string })
 
 - Omit `taskId` to start a new task; pass the `Task:` value from the previous result to follow up
   in the same task.
-- Each result reports the peer, task id, turn count, and reply text. The cap result is
+- Each result reports the peer, task id, the run's starting turn (`firstTurn`, the index its first
+  message occupies in the task) and final turn count, and the reply text. The cap result is
   `max turns reached without verdict` (a bounded outcome, not an error).
 - If the peer's Agent Card advertises streaming, the tool consumes `message/stream`; otherwise it
   sends with `message/send` and polls `tasks/get` until a reply or a terminal state.
