@@ -1176,6 +1176,7 @@ export const dict = {
   "a2a.inline.title": "A2A conversation",
   "a2a.inline.expand": "Expand conversation",
   "a2a.inline.collapse": "Collapse conversation",
+  "a2a.inline.empty": "No conversation history available for this task.",
   "a2a.hub.title": "A2A",
   "a2a.hub.tab.new": "New",
   "a2a.hub.tab.sessions": "Sessions",

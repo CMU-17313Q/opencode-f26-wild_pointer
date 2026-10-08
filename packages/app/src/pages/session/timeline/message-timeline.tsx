@@ -1087,13 +1087,11 @@ export function MessageTimeline(props: {
                 />
                 <Show when={a2aInlineTaskId(part())}>
                   {(taskId) => (
-                    <Show when={a2aLive().threadFor(taskId()).turns.length > 0}>
-                      <A2AInlineThread
-                        taskId={taskId()}
-                        thread={a2aLive().threadFor(taskId())}
-                        onSizeChange={onSizeChange}
-                      />
-                    </Show>
+                    <A2AInlineThread
+                      taskId={taskId()}
+                      thread={a2aLive().threadFor(taskId())}
+                      onSizeChange={onSizeChange}
+                    />
                   )}
                 </Show>
               </>

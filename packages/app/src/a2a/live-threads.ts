@@ -10,9 +10,11 @@
 
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
+import type { Artifact, TaskState, Turn } from "a2a"
 import { useSDK } from "@/context/sdk"
 import { useServerSDK } from "@/context/server-sdk"
 import { applyA2AEvent, threadFor, type A2AThreadData, type A2AThreads } from "./thread-store"
+import type { A2ASessionRecord } from "./control"
 
 // Structural view of the fields the inline anchor needs. Kept minimal so tests
 // can build fixtures without a full SDK tool part.
@@ -37,6 +39,31 @@ export function a2aInlineTaskId(part: A2AAskPart | undefined): string | undefine
   const input = (state as { input?: unknown }).input
   if (typeof input === "object" && input !== null && (input as { taskId?: unknown }).taskId !== undefined) return
   return taskId
+}
+
+// Maps a persisted registry record into the thread data that the inline box
+// and the bottom panel render, so conversations survive page reloads and any
+// live-capture gap.
+export function threadDataFromRecord(record: A2ASessionRecord): A2AThreadData {
+  const turns: Turn[] = (record.history ?? []).map((entry, position) => ({
+    index: typeof entry.turn === "number" ? entry.turn : position,
+    speaker: entry.speaker === "local" ? "local" : "remote",
+    ...(typeof entry.peerId === "string" ? { peerId: entry.peerId } : {}),
+    ...(typeof entry.taskId === "string" ? { taskId: entry.taskId } : {}),
+    text: typeof entry.content === "string" ? entry.content : "",
+  }))
+  const states = (record.states ?? []).filter((state): state is TaskState => typeof state === "string")
+  return {
+    taskId: record.taskId,
+    turns,
+    states: states.length > 0 ? states : [record.state],
+    ...(typeof record.message === "string" && record.message !== "" ? { status: record.message } : {}),
+    ...(isArtifact(record.artifact) ? { artifact: record.artifact } : {}),
+  }
+}
+
+function isArtifact(value: unknown): value is Artifact {
+  return typeof value === "object" && value !== null && Array.isArray((value as { parts?: unknown }).parts)
 }
 
 export type LiveThreads = {

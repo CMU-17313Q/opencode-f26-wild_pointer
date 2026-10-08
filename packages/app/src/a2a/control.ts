@@ -14,6 +14,15 @@ export const ADMIN_PORT_PATH = ".opencode/a2a/admin.port"
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
+// One persisted conversation turn, as recorded by the plugin registry.
+export interface A2ATurnRecord {
+  speaker?: string
+  turn?: number
+  peerId?: string
+  taskId?: string
+  content?: string
+}
+
 // GET /a2a/sessions and GET /a2a/sessions/:taskId. Timestamps are epoch ms.
 export interface A2ASessionRecord {
   taskId: string
@@ -24,6 +33,11 @@ export interface A2ASessionRecord {
   turns: number
   sessionId?: string
   message?: string
+  // Persisted conversation capture: present for tasks recorded by a registry
+  // that keeps turn history.
+  history?: A2ATurnRecord[]
+  states?: string[]
+  artifact?: unknown
   createdAt: number
   updatedAt: number
 }
