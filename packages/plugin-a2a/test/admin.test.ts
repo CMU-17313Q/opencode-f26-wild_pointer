@@ -36,7 +36,7 @@ type Harness = {
 }
 
 async function harness(
-  options: { peers?: Record<string, string>; name?: string; maxTurns?: number; replies?: string[] } = {},
+  options: { peers?: Record<string, string>; name?: string; maxTurns?: number; replies?: string[]; listenPort?: number } = {},
 ): Promise<Harness> {
   const root = mkdtempSync(join(tmpdir(), "a2a-admin-"))
   const fixture = join(root, "opencode.json")
@@ -51,7 +51,12 @@ async function harness(
   const emit = () => undefined
   const cancel = createCanceller({ store, emit })
   const peers = options.peers ?? { "agent-b": bridge.baseUrl }
-  const configRef = { current: resolveConfig({ options: { enabled: true, allowedPeers: peers }, env: {} }) }
+  const configRef = {
+    current: resolveConfig({
+      options: { enabled: true, allowedPeers: peers, name: options.name ?? "agent-b", listenPort: options.listenPort },
+      env: {},
+    }),
+  }
   const manager = createPeerManager({
     files: [fixture],
     config: () => configRef.current,
@@ -66,6 +71,7 @@ async function harness(
     core,
     peers: manager,
     config: () => configRef.current,
+    inboundPort: () => options.listenPort,
     portFile: join(root, "admin.port"),
   })
   return {
@@ -107,6 +113,22 @@ describe("admin control API", () => {
       expect(readFileSync(portFile, "utf8")).toBe(String(h.server.port))
       await h.server.stop()
       expect(existsSync(portFile)).toBe(false)
+    } finally {
+      await h.close()
+    }
+  })
+
+  test("GET /a2a/self reports the inbound socket a peer should add", async () => {
+    const h = await harness({ name: "agent-b", listenPort: 4000 })
+    try {
+      const { status, body } = await get<{ enabled: boolean; name?: string; listenPort: number; url?: string }>(
+        `${h.baseUrl}/a2a/self`,
+      )
+      expect(status).toBe(200)
+      expect(body.enabled).toBe(true)
+      expect(body.name).toBe("agent-b")
+      expect(body.listenPort).toBe(4000)
+      expect(body.url).toBe("http://localhost:4000")
     } finally {
       await h.close()
     }

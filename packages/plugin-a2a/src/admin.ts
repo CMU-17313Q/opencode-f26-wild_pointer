@@ -17,6 +17,9 @@ export type AdminDeps = {
   core: ConversationCore
   peers: PeerManager
   config: () => A2AConfig
+  // The actually bound inbound A2A port, when the listener is up. Guards
+  // against reporting a configured-but-different port (port 0 = ephemeral).
+  inboundPort?: () => number | undefined
   portFile: string
   testTimeoutMs?: number
   port?: number
@@ -66,6 +69,7 @@ async function handle(request: Request, input: AdminDeps): Promise<Response> {
   const parts = new URL(request.url).pathname.split("/").filter(Boolean)
   try {
     if (parts[0] !== "a2a") throw new HttpError(404, "Not found")
+    if (parts[1] === "self") return await self(request, input)
     if (parts[1] === "sessions") return await sessions(request, parts, input)
     if (parts[1] === "conversations") return await conversations(request, parts, input)
     if (parts[1] === "peers") return await peers(request, parts, input)
@@ -84,6 +88,21 @@ async function sessions(request: Request, parts: string[], input: AdminDeps): Pr
   const record = input.registry.get(taskId)
   if (record === undefined) throw new HttpError(404, `Unknown A2A task "${taskId}"`)
   return json(record)
+}
+
+// This instance's inbound socket, in the shape a peer pastes into its
+// allowedPeers. The bound port wins over the configured one so an ephemeral
+// bind (port 0) reports what peers should actually use.
+async function self(request: Request, input: AdminDeps): Promise<Response> {
+  if (request.method !== "GET") throw new HttpError(405, "Method not allowed")
+  const config = input.config()
+  const port = input.inboundPort?.() ?? config.listenPort
+  return json({
+    enabled: config.enabled,
+    ...(config.name !== undefined ? { name: config.name } : {}),
+    listenPort: port,
+    ...(port > 0 ? { url: `http://localhost:${port}` } : {}),
+  })
 }
 
 async function conversations(request: Request, parts: string[], input: AdminDeps): Promise<Response> {
