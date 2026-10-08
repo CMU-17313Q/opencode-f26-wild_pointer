@@ -121,14 +121,20 @@ describe("admin control API", () => {
   test("GET /a2a/self reports the inbound socket a peer should add", async () => {
     const h = await harness({ name: "agent-b", listenPort: 4000 })
     try {
-      const { status, body } = await get<{ enabled: boolean; name?: string; listenPort: number; url?: string }>(
-        `${h.baseUrl}/a2a/self`,
-      )
+      const { status, body } = await get<{
+        enabled: boolean
+        name?: string
+        listenPort: number
+        url?: string
+        lanUrls?: string[]
+      }>(`${h.baseUrl}/a2a/self`)
       expect(status).toBe(200)
       expect(body.enabled).toBe(true)
       expect(body.name).toBe("agent-b")
       expect(body.listenPort).toBe(4000)
       expect(body.url).toBe("http://localhost:4000")
+      // LAN addresses are environment-dependent; only the shape is guaranteed.
+      expect(Array.isArray(body.lanUrls)).toBe(true)
     } finally {
       await h.close()
     }

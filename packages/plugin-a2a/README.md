@@ -97,7 +97,7 @@ plugin is disabled or disposed. All responses are JSON and carry permissive CORS
 
 | Method   | Path                                  | Purpose                                                        |
 | -------- | ------------------------------------- | -------------------------------------------------------------- |
-| `GET`    | `/a2a/self`                           | This instance's inbound socket (name + URL for peers).         |
+| `GET`    | `/a2a/self`                           | This instance's inbound socket (localhost + LAN addresses).    |
 | `GET`    | `/a2a/sessions`                       | Session registry, most recent first.                           |
 | `GET`    | `/a2a/sessions/:taskId`               | One registry record.                                           |
 | `POST`   | `/a2a/conversations`                  | `{ peer, message, origin? }` → start a turn and await it.      |

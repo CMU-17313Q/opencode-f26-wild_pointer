@@ -1,4 +1,5 @@
 import { mkdir, unlink, writeFile } from "node:fs/promises"
+import { networkInterfaces } from "node:os"
 import path from "node:path"
 import { AgentCardSchema } from "a2a"
 import type { PeerManager } from "./peers.ts"
@@ -92,7 +93,9 @@ async function sessions(request: Request, parts: string[], input: AdminDeps): Pr
 
 // This instance's inbound socket, in the shape a peer pastes into its
 // allowedPeers. The bound port wins over the configured one so an ephemeral
-// bind (port 0) reports what peers should actually use.
+// bind (port 0) reports what peers should actually use. `lanUrls` lists
+// addresses a peer on the same network can dial — localhost is unreachable
+// from another machine.
 async function self(request: Request, input: AdminDeps): Promise<Response> {
   if (request.method !== "GET") throw new HttpError(405, "Method not allowed")
   const config = input.config()
@@ -101,8 +104,15 @@ async function self(request: Request, input: AdminDeps): Promise<Response> {
     enabled: config.enabled,
     ...(config.name !== undefined ? { name: config.name } : {}),
     listenPort: port,
-    ...(port > 0 ? { url: `http://localhost:${port}` } : {}),
+    ...(port > 0 ? { url: `http://localhost:${port}`, lanUrls: lanUrls(port) } : {}),
   })
+}
+
+function lanUrls(port: number): string[] {
+  return Object.values(networkInterfaces())
+    .flatMap((addresses) => addresses ?? [])
+    .filter((address) => (address.family as string) === "IPv4" && !address.internal)
+    .map((address) => `http://${address.address}:${port}`)
 }
 
 async function conversations(request: Request, parts: string[], input: AdminDeps): Promise<Response> {
