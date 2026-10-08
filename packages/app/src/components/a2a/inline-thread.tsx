@@ -3,7 +3,7 @@ import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show } 
 import type { A2AThreadData } from "@/a2a/thread-store"
 import { ADMIN_PORT_PATH, createA2AControl, type A2ASessionRecord } from "@/a2a/control"
 import { sliceLiveThread, threadDataFromRecord, type A2AAskSegment } from "@/a2a/live-threads"
-import { A2AConversation, a2aVerdictText } from "@/components/session/a2a-thread"
+import { A2AConversation } from "@/components/session/a2a-thread"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 
@@ -152,43 +152,36 @@ export function A2AInlineThread(props: A2AInlineThreadProps) {
   )
 
   return (
-    <>
-      <section
-        data-task-id={props.taskId}
-        class="mt-2 flex flex-col overflow-hidden rounded-md border border-border-weak-base bg-surface-panel"
+    <section
+      data-task-id={props.taskId}
+      class="mt-2 flex flex-col overflow-hidden rounded-md border border-border-weak-base bg-surface-panel"
+    >
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-base"
+        aria-expanded={expanded()}
+        aria-label={language.t(expanded() ? "a2a.inline.collapse" : "a2a.inline.expand")}
+        onClick={toggle}
       >
-        <button
-          type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-base"
-          aria-expanded={expanded()}
-          aria-label={language.t(expanded() ? "a2a.inline.collapse" : "a2a.inline.expand")}
-          onClick={toggle}
-        >
-          <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-weak" />
-          <span class="text-12-medium text-text-strong">{language.t("a2a.inline.title")}</span>
-          <Show when={peer()}>
-            <span class="text-11-regular text-text-weak">{peer()}</span>
-          </Show>
-          <span class="ml-auto text-11-regular text-text-weak">
-            {language.t("a2a.hub.sessions.turns", { count: data().turns.length })}
-          </span>
-        </button>
-        <Show when={expanded()}>
-          <div class="flex flex-col gap-2 border-t border-border-weak-base px-3 py-2">
-            <Show when={data().turns.length === 0 && !fetching()}>
-              <div class="text-11-regular text-text-weak">{language.t("a2a.inline.empty")}</div>
-            </Show>
-            <Show when={data().turns.length > 0}>
-              <A2AConversation data={data()} />
-            </Show>
-          </div>
+        <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-weak" />
+        <span class="text-12-medium text-text-strong">{language.t("a2a.inline.title")}</span>
+        <Show when={peer()}>
+          <span class="text-11-regular text-text-weak">{peer()}</span>
         </Show>
-      </section>
-      <Show when={a2aVerdictText(data())}>
-        {(verdict) => (
-          <div class="mt-1.5 break-words whitespace-pre-wrap text-12-regular text-text-base">{verdict()}</div>
-        )}
+        <span class="ml-auto text-11-regular text-text-weak">
+          {language.t("a2a.hub.sessions.turns", { count: data().turns.length })}
+        </span>
+      </button>
+      <Show when={expanded()}>
+        <div class="flex flex-col gap-2 border-t border-border-weak-base px-3 py-2">
+          <Show when={data().turns.length === 0 && !fetching()}>
+            <div class="text-11-regular text-text-weak">{language.t("a2a.inline.empty")}</div>
+          </Show>
+          <Show when={data().turns.length > 0}>
+            <A2AConversation data={data()} />
+          </Show>
+        </div>
       </Show>
-    </>
+    </section>
   )
 }

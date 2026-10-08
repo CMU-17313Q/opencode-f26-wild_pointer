@@ -45,19 +45,13 @@ function isError(state: TaskState | undefined) {
   return state === "TASK_STATE_FAILED" || state === "TASK_STATE_CANCELED"
 }
 
-// The peer's final product. Consumers render it after the conversation, like a
-// normal message, rather than inside the foldable conversation box.
-export function a2aVerdictText(data: A2AThreadData): string | undefined {
-  if (!data.artifact || data.states.at(-1) !== "TASK_STATE_COMPLETED") return undefined
-  return data.artifact.parts.map((part) => part.text).join(" ")
-}
-
 // Conversation body shared by the bottom thread panel and the inline timeline
 // box: the exchanges as `speaker: message` lines, color-coded by side, plus an
-// explanation line when the task ended without a verdict. Diagnostic details
-// (task ids, turn numbers, state chains) are deliberately omitted, and messages
-// always render in full. The surrounding shell (header, cancel, follow-up
-// composer, verdict) stays in A2AThread.
+// end-of-task status note when it explains the ending. Diagnostic details
+// (task ids, turn numbers, state chains) and the verdict artifact (which
+// usually just repeats the peer's final reply) are deliberately omitted;
+// messages always render in full. The surrounding shell (header, cancel,
+// follow-up composer) stays in A2AThread.
 export function A2AConversation(props: A2AConversationProps) {
   const language = useLanguage()
 
@@ -178,11 +172,6 @@ export function A2AThread(props: A2AThreadProps) {
             </div>
           </div>
           <A2AConversation data={data()} />
-          <Show when={a2aVerdictText(data())}>
-            {(verdict) => (
-              <div class="break-words whitespace-pre-wrap text-12-regular text-text-base">{verdict()}</div>
-            )}
-          </Show>
           <Show when={props.onFollowUp}>
             <form
               class="flex items-end gap-2"

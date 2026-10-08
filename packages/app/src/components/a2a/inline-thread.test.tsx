@@ -118,15 +118,15 @@ suite("A2AInlineThread DOM", () => {
     expect(text).toContain("2 turns")
     expect(text).toContain("agent-b: hello peer")
     expect(text).toContain("agent-a: hi back")
-    expect(text).toContain("verdict text")
-    // Diagnostics stay out of the box: no state chain, and no status line when
-    // a verdict already tells the story.
+    // Diagnostics and the verdict stay out: no state chain, no duplicate
+    // verdict block, and no status line when an artifact already exists.
     expect(text).not.toContain("TASK_STATE")
+    expect(text).not.toContain("verdict text")
     expect(text).not.toContain("all done")
     mounted.dispose()
   })
 
-  test("shows the status note when there is no verdict to show", () => {
+  test("shows the status note when the task ended without an artifact", () => {
     const mounted = mount({ ...fixture, artifact: undefined }, () => {})
     expect(mounted.host.textContent).toContain("all done")
     mounted.dispose()
