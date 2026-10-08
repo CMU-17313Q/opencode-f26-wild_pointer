@@ -22,24 +22,21 @@ const TERMINAL = new Set([
   "TASK_STATE_REJECTED",
 ])
 
-const OPENING =
-  "Resolved: spaces are objectively better than tabs for code style. " +
-  "Take the opposing position and defend it in one short paragraph."
-const CHALLENGE =
-  "Weak argument. EditorConfig and gofmt both standardize on tabs and your point " +
-  "about alignment only matters in badly formatted code. Concede or give your final verdict."
-
-function args(): { peer: string; name: string } {
+function args(): { peer: string; name: string; topic: string } {
   const flag = (name: string) => {
     const index = process.argv.indexOf(name)
     return index === -1 ? undefined : process.argv[index + 1]
   }
   const peer = flag("--peer")
   if (!peer) {
-    console.error("usage: bun run demo/debate.ts --peer http://<host>:<port> [--name agent-a]")
+    console.error("usage: bun run demo/debate.ts --peer http://<host>:<port> [--name agent-a] [--topic <question>]")
     process.exit(2)
   }
-  return { peer, name: flag("--name") ?? "agent-a" }
+  return {
+    peer,
+    name: flag("--name") ?? "agent-a",
+    topic: flag("--topic") ?? "spaces are objectively better than tabs for code style",
+  }
 }
 
 function userMessage(text: string, taskId?: string): Message {
@@ -68,14 +65,17 @@ async function waitFor(client: A2AClient, taskId: string, label: string): Promis
 }
 
 async function main() {
-  const { peer, name } = args()
+  const { peer, name, topic } = args()
   const client = new A2AClient({ baseUrl: peer, headers: { [A2A_PEER_HEADER]: name } })
+  const opening = `Resolved: ${topic}. Take the opposing position and defend it in one short paragraph.`
+  const challenge =
+    "I disagree with your reasoning — the evidence cuts the other way. Concede or give your final verdict."
 
   const card = await client.fetchAgentCard()
   console.log(`peer card: ${card.name} @ ${peer}`)
 
-  console.log(`\n[turn 1] ${name} → ${OPENING}`)
-  const opened = await client.sendMessage(userMessage(OPENING))
+  console.log(`\n[turn 1] ${name} → ${opening}`)
+  const opened = await client.sendMessage(userMessage(opening))
   if (!("id" in opened)) throw new Error("peer answered with a bare message; expected a task")
   const taskId = opened.id
   console.log(`task ${taskId} created (${opened.status.state})`)
@@ -83,8 +83,8 @@ async function main() {
   const first = await waitFor(client, taskId, "first reply")
   console.log(`\n[turn 2] ${card.name} → ${agentReply(first)}`)
 
-  console.log(`\n[turn 3] ${name} → ${CHALLENGE}`)
-  await client.sendMessage(userMessage(CHALLENGE, taskId))
+  console.log(`\n[turn 3] ${name} → ${challenge}`)
+  await client.sendMessage(userMessage(challenge, taskId))
 
   const done = await waitFor(client, taskId, "verdict")
   console.log(`\n[turn 4] ${card.name} → ${agentReply(done)}`)
