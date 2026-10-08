@@ -45,12 +45,19 @@ function isError(state: TaskState | undefined) {
   return state === "TASK_STATE_FAILED" || state === "TASK_STATE_CANCELED"
 }
 
+// The peer's final product. Consumers render it after the conversation, like a
+// normal message, rather than inside the foldable conversation box.
+export function a2aVerdictText(data: A2AThreadData): string | undefined {
+  if (!data.artifact || data.states.at(-1) !== "TASK_STATE_COMPLETED") return undefined
+  return data.artifact.parts.map((part) => part.text).join(" ")
+}
+
 // Conversation body shared by the bottom thread panel and the inline timeline
-// box: the exchanges as `speaker: message` lines, an explanation line when the
-// task ended without a verdict, and the verdict itself. Diagnostic details
+// box: the exchanges as `speaker: message` lines, color-coded by side, plus an
+// explanation line when the task ended without a verdict. Diagnostic details
 // (task ids, turn numbers, state chains) are deliberately omitted, and messages
 // always render in full. The surrounding shell (header, cancel, follow-up
-// composer) stays in A2AThread.
+// composer, verdict) stays in A2AThread.
 export function A2AConversation(props: A2AConversationProps) {
   const language = useLanguage()
 
@@ -60,7 +67,9 @@ export function A2AConversation(props: A2AConversationProps) {
         <For each={props.data.turns}>
           {(turn) => (
             <p class="break-words whitespace-pre-wrap text-12-regular text-text-base">
-              <span class="text-12-medium text-text-strong">
+              <span
+                class={`text-12-medium ${turn.speaker === "local" ? "text-text-interactive-base" : "text-icon-warning-base"}`}
+              >
                 {turn.peerId ??
                   language.t(turn.speaker === "local" ? "a2a.thread.peer.local" : "a2a.thread.peer.remote")}
                 {": "}
@@ -75,14 +84,6 @@ export function A2AConversation(props: A2AConversationProps) {
           class={`break-words text-11-regular ${isError(props.data.states.at(-1)) ? "text-icon-warning-base" : "text-text-weak"}`}
         >
           {props.data.status}
-        </div>
-      </Show>
-      <Show when={props.data.artifact && props.data.states.at(-1) === "TASK_STATE_COMPLETED"}>
-        <div class="border-l-2 border-icon-success-base pl-3 text-12-regular text-text-base">
-          <span class="text-11-medium text-text-strong">{language.t("a2a.thread.verdict")}</span>
-          <div class="break-words whitespace-pre-wrap">
-            {props.data.artifact?.parts.map((part) => part.text).join(" ")}
-          </div>
         </div>
       </Show>
     </>
@@ -177,6 +178,11 @@ export function A2AThread(props: A2AThreadProps) {
             </div>
           </div>
           <A2AConversation data={data()} />
+          <Show when={a2aVerdictText(data())}>
+            {(verdict) => (
+              <div class="break-words whitespace-pre-wrap text-12-regular text-text-base">{verdict()}</div>
+            )}
+          </Show>
           <Show when={props.onFollowUp}>
             <form
               class="flex items-end gap-2"
