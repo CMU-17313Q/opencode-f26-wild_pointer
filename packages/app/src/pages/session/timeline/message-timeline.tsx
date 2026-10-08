@@ -52,7 +52,7 @@ import type {
   ToolPart,
   UserMessage,
 } from "@opencode-ai/sdk/v2"
-import { a2aInlineTaskId, useLiveThreads } from "@/a2a/live-threads"
+import { a2aInlineAsk, a2aSegmentFrom, useLiveThreads, type A2AAsk } from "@/a2a/live-threads"
 import { A2AInlineThread } from "@/components/a2a/inline-thread"
 import { showToast } from "@/utils/toast"
 import { downloadSessionExport, fetchSessionExport, sessionExportFilename } from "@/utils/session-export"
@@ -327,6 +327,20 @@ export function MessageTimeline(props: {
       (count, message) => count + (sync().data.part[message.id]?.length ?? 0),
       0,
     )
+  })
+  // Call anchors per task: every completed `a2a_ask` call contributes the turn
+  // index its run starts at. Each inline box takes the next anchor as its
+  // exclusive end, so a box shows exactly its own ask's turns.
+  const a2aAskAnchors = createMemo(() => {
+    const anchors = new Map<string, number[]>()
+    const id = sessionID()
+    if (!id) return anchors
+    const parts = (sync().data.message[id] ?? []).flatMap((message) => getMsgParts(message.id))
+    parts
+      .map((entry) => a2aInlineAsk(entry))
+      .filter((ask): ask is A2AAsk => ask !== undefined)
+      .forEach((ask) => anchors.set(ask.taskId, [...(anchors.get(ask.taskId) ?? []), ask.firstTurn]))
+    return anchors
   })
   const childTaskDescription = createMemo(() => {
     const id = sessionID()
@@ -1096,11 +1110,12 @@ export function MessageTimeline(props: {
                   virtualizeDiff={false}
                   onContentRendered={onSizeChange}
                 />
-                <Show when={a2aInlineTaskId(part())}>
-                  {(taskId) => (
+                <Show when={a2aInlineAsk(part())}>
+                  {(ask) => (
                     <A2AInlineThread
-                      taskId={taskId()}
-                      thread={a2aLive().threadFor(taskId())}
+                      taskId={ask().taskId}
+                      segment={a2aSegmentFrom(a2aAskAnchors().get(ask().taskId), ask().firstTurn)}
+                      thread={a2aLive().threadFor(ask().taskId)}
                       onSizeChange={onSizeChange}
                       revision={partsRevision}
                     />

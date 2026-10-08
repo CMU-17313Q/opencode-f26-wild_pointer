@@ -24,42 +24,116 @@ export interface A2AAskPart {
   state?: unknown
 }
 
-// Returns the task id only for the call that initiated the conversation: a
-// completed `a2a_ask` whose metadata carries a task id, with no `input.taskId`.
-// Continuations pass `input.taskId` and must not anchor a second inline box.
-export function a2aInlineTaskId(part: A2AAskPart | undefined): string | undefined {
+// One inline box per `a2a_ask` call: the task the call drives and the turn
+// index its own run starts at. Initiating calls always start at 0; a
+// continuation must carry the plugin-stamped starting turn, otherwise (a call
+// made before the stamp existed) it has no defined slice and anchors nothing.
+export interface A2AAsk {
+  taskId: string
+  firstTurn: number
+}
+
+export function a2aInlineAsk(part: A2AAskPart | undefined): A2AAsk | undefined {
   if (!part || part.type !== "tool" || part.tool !== "a2a_ask") return
   const state = part.state
   if (typeof state !== "object" || state === null) return
   if ((state as { status?: unknown }).status !== "completed") return
   const metadata = (state as { metadata?: unknown }).metadata
-  if (typeof metadata !== "object" || metadata === null) return
-  const taskId = (metadata as { taskId?: unknown }).taskId
-  if (typeof taskId !== "string" || taskId === "") return
   const input = (state as { input?: unknown }).input
-  if (typeof input === "object" && input !== null && (input as { taskId?: unknown }).taskId !== undefined) return
-  return taskId
+  const inputTaskId = readString(input, "taskId")
+  const firstTurn = readNumber(metadata, "firstTurn")
+  if (inputTaskId !== undefined) {
+    if (firstTurn === undefined) return
+    return { taskId: inputTaskId, firstTurn }
+  }
+  const taskId = readString(metadata, "taskId")
+  if (taskId === undefined) return
+  return { taskId, firstTurn: firstTurn ?? 0 }
+}
+
+// One box's slice of a task: the turns its ask owns. The next ask's starting
+// turn (when a later ask exists) is the exclusive end; the index selects the
+// matching slice of the task's state chain.
+export interface A2AAskSegment {
+  firstTurn: number
+  next?: number
+  index: number
+}
+
+// Computes the slice for one ask from every anchor observed for its task in
+// the session (its own call included).
+export function a2aSegmentFrom(anchors: number[] | undefined, firstTurn: number): A2AAskSegment {
+  const sorted = [...(anchors ?? [])].sort((left, right) => left - right)
+  const index = sorted.indexOf(firstTurn)
+  const next = sorted.find((anchor) => anchor > firstTurn)
+  return { firstTurn, ...(next === undefined ? {} : { next }), index: index < 0 ? 0 : index }
 }
 
 // Maps a persisted registry record into the thread data that the inline box
 // and the bottom panel render, so conversations survive page reloads and any
-// live-capture gap.
-export function threadDataFromRecord(record: A2ASessionRecord): A2AThreadData {
-  const turns: Turn[] = (record.history ?? []).map((entry, position) => ({
-    index: typeof entry.turn === "number" ? entry.turn : position,
-    speaker: entry.speaker === "local" ? "local" : "remote",
-    ...(typeof entry.peerId === "string" ? { peerId: entry.peerId } : {}),
-    ...(typeof entry.taskId === "string" ? { taskId: entry.taskId } : {}),
-    text: typeof entry.content === "string" ? entry.content : "",
-  }))
-  const states = (record.states ?? []).filter((state): state is TaskState => typeof state === "string")
+// live-capture gap. With a segment, only that ask's turns and states are kept;
+// the verdict (status + artifact) belongs to the task's last segment alone.
+export function threadDataFromRecord(record: A2ASessionRecord, segment?: A2AAskSegment): A2AThreadData {
+  const mapped = (record.history ?? []).map(
+    (entry, position): Turn => ({
+      index: typeof entry.turn === "number" ? entry.turn : position,
+      speaker: entry.speaker === "local" ? "local" : "remote",
+      ...(typeof entry.peerId === "string" ? { peerId: entry.peerId } : {}),
+      ...(typeof entry.taskId === "string" ? { taskId: entry.taskId } : {}),
+      text: typeof entry.content === "string" ? entry.content : "",
+    }),
+  )
+  const turns =
+    segment === undefined
+      ? mapped
+      : mapped.filter(
+          (turn) => turn.index >= segment.firstTurn && (segment.next === undefined || turn.index < segment.next),
+        )
+  const chain = (record.states ?? []).filter((state): state is TaskState => typeof state === "string")
+  const states = segmentStates(chain, segment)
+  const isLast = segment === undefined || segment.next === undefined
   return {
     taskId: record.taskId,
     turns,
     states: states.length > 0 ? states : [record.state],
-    ...(typeof record.message === "string" && record.message !== "" ? { status: record.message } : {}),
-    ...(isArtifact(record.artifact) ? { artifact: record.artifact } : {}),
+    ...(isLast && typeof record.message === "string" && record.message !== "" ? { status: record.message } : {}),
+    ...(isLast && isArtifact(record.artifact) ? { artifact: record.artifact } : {}),
   }
+}
+
+// Slices live-captured thread data the same way records are sliced, so the
+// fallback path shows the same per-ask scope.
+export function sliceLiveThread(thread: A2AThreadData, segment?: A2AAskSegment): A2AThreadData {
+  if (segment === undefined) return thread
+  return {
+    ...thread,
+    turns: thread.turns.filter(
+      (turn) => turn.index >= segment.firstTurn && (segment.next === undefined || turn.index < segment.next),
+    ),
+  }
+}
+
+// Every dispatch opens its segment with a SUBMITTED state, so the Nth SUBMITTED
+// in the chain starts the Nth segment; slice up to the next SUBMITTED (or the
+// end). Falls back to the whole chain when it cannot be sliced.
+function segmentStates(chain: TaskState[], segment?: A2AAskSegment): TaskState[] {
+  if (segment === undefined) return chain
+  const starts = chain.flatMap((state, index) => (state === "TASK_STATE_SUBMITTED" ? [index] : []))
+  const from = starts[segment.index]
+  if (from === undefined) return chain
+  return chain.slice(from, starts[segment.index + 1] ?? chain.length)
+}
+
+function readString(value: unknown, key: string): string | undefined {
+  if (typeof value !== "object" || value === null) return
+  const field = (value as Record<string, unknown>)[key]
+  return typeof field === "string" && field !== "" ? field : undefined
+}
+
+function readNumber(value: unknown, key: string): number | undefined {
+  if (typeof value !== "object" || value === null) return
+  const field = (value as Record<string, unknown>)[key]
+  return typeof field === "number" ? field : undefined
 }
 
 function isArtifact(value: unknown): value is Artifact {

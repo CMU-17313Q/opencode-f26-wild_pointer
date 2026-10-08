@@ -1,14 +1,16 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show } from "solid-js"
 import type { A2AThreadData } from "@/a2a/thread-store"
-import { ADMIN_PORT_PATH, createA2AControl } from "@/a2a/control"
-import { threadDataFromRecord } from "@/a2a/live-threads"
+import { ADMIN_PORT_PATH, createA2AControl, type A2ASessionRecord } from "@/a2a/control"
+import { sliceLiveThread, threadDataFromRecord, type A2AAskSegment } from "@/a2a/live-threads"
 import { A2AConversation } from "@/components/session/a2a-thread"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 
 export interface A2AInlineThreadProps {
   taskId: string
+  // The ask's slice of the task; absent means the whole conversation.
+  segment?: A2AAskSegment
   thread: A2AThreadData
   onSizeChange?: () => void
   // Cheap monotonic proxy for "the surrounding session gained parts": every new
@@ -48,21 +50,22 @@ const UNRESOLVED_POLL_WINDOW_MS = 30_000
 const POLL_MS = 2_000
 const TRIGGER_GAP_MS = 1_500
 
-// Last fetched record per task, per page. Continuously refreshed by polling and
-// activity triggers; the registry is preferred over live capture because it
-// records every turn, while live capture can miss whole events.
-const recordCache = new Map<string, A2AThreadData>()
+// Last fetched record per task, per page (records are task-level, so boxes of
+// the same task share one). Continuously refreshed by polling and activity
+// triggers; the registry is preferred over live capture because it records
+// every turn, while live capture can miss whole events.
+const recordCache = new Map<string, A2ASessionRecord>()
 
-// Foldable inline rendering of one task's conversation, anchored beneath the
-// `a2a_ask` tool row that initiated it. Renders from the plugin registry
-// (hydrated on mount and kept fresh while the task runs), falling back to any
-// live-captured turns when no record can be fetched.
+// Foldable inline rendering of one ask's slice of a task's conversation,
+// anchored beneath the `a2a_ask` tool row it belongs to. Renders from the
+// plugin registry (hydrated on mount and kept fresh while the task runs),
+// falling back to any live-captured turns when no record can be fetched.
 export function A2AInlineThread(props: A2AInlineThreadProps) {
   const language = useLanguage()
   const sdk = useSDK()
   const { expanded, toggle } = createInlineThreadFold(props)
 
-  const [record, setRecord] = createSignal<A2AThreadData | undefined>(recordCache.get(props.taskId))
+  const [record, setRecord] = createSignal<A2ASessionRecord | undefined>(recordCache.get(props.taskId))
   const [fetching, setFetching] = createSignal(record() === undefined)
   const start = Date.now()
   let inFlight = false
@@ -83,9 +86,8 @@ export function A2AInlineThread(props: A2AInlineThreadProps) {
     try {
       const entry = await control.getSession(props.taskId).catch(() => undefined)
       if (entry === undefined) return
-      const next = threadDataFromRecord(entry)
-      recordCache.set(props.taskId, next)
-      setRecord(next)
+      recordCache.set(props.taskId, entry)
+      setRecord(entry)
     } finally {
       inFlight = false
       setFetching(false)
@@ -96,8 +98,13 @@ export function A2AInlineThread(props: A2AInlineThreadProps) {
     if (record() === undefined) void refetch()
   })
 
-  const data = (): A2AThreadData =>
-    record() ?? (props.thread.turns.length > 0 ? props.thread : { taskId: props.taskId, turns: [], states: [] })
+  const mapped = createMemo<A2AThreadData | undefined>(() => {
+    const entry = record()
+    if (entry !== undefined) return threadDataFromRecord(entry, props.segment)
+    if (props.thread.turns.length === 0) return undefined
+    return sliceLiveThread(props.thread, props.segment)
+  })
+  const data = (): A2AThreadData => mapped() ?? { taskId: props.taskId, turns: [], states: [] }
 
   // Poll while the task is running, and for a bounded window while the registry
   // still has no record. The memos dedupe so the interval survives unchanged
