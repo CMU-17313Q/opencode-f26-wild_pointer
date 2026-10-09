@@ -8,7 +8,9 @@ export const A2AConfigSchema = z.object({
   enabled: z.boolean().default(false),
   listenPort: z.number().int().min(0).max(65535).default(0),
   allowedPeers: z.record(z.string(), z.string()).default({}),
-  maxTurns: z.number().int().positive().default(4),
+  // 0 disables the cap: conversations stay input-required until a peer
+  // completes or cancels the task.
+  maxTurns: z.number().int().nonnegative().default(4),
   // This instance's self-identity, sent to peers as the x-a2a-peer header so
   // the remote host can record who is calling (A2A-007).
   name: z.string().min(1).optional(),

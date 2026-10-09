@@ -74,11 +74,11 @@ function renderResult(config: { maxTurns: number }, peer: string, result: Conver
   if (result.capped) return capResult(config, peer, result)
   const lines = [`Peer: ${peer}`]
   if (result.taskId) lines.push(`Task: ${result.taskId}`)
-  if (result.turn !== undefined) lines.push(`Turn: ${result.turn}/${config.maxTurns}`)
+  if (result.turn !== undefined) lines.push(`Turn: ${turnLabel(config, result.turn)}`)
   lines.push(result.reply ? `Reply: ${result.reply}` : "Reply: (none)")
   if (result.artifact) lines.push(`Artifact: ${result.artifact}`)
   return {
-    title: result.turn !== undefined ? `${peer} turn ${result.turn}/${config.maxTurns}` : `${peer} reply`,
+    title: result.turn !== undefined ? `${peer} turn ${turnLabel(config, result.turn)}` : `${peer} reply`,
     output: lines.join("\n"),
     metadata: {
       peerId: peer,
@@ -87,6 +87,10 @@ function renderResult(config: { maxTurns: number }, peer: string, result: Conver
       state: result.state,
     },
   }
+}
+
+function turnLabel(config: { maxTurns: number }, turn: number) {
+  return config.maxTurns > 0 ? `${turn}/${config.maxTurns}` : String(turn)
 }
 
 function terminalResult(peer: string, result: ConversationResult): ToolResult {
