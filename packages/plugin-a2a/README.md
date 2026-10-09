@@ -73,7 +73,8 @@ a2a_ask({ peer: string, message: string, taskId?: string })
 
 When enabled, the plugin also serves inbound A2A tasks on `listenPort`:
 
-- One opencode session per A2A `taskId`, created on the first message (titled `A2A <taskId>`) and
+- One opencode session per A2A `taskId`, created on the first message — titled `A2A <peer> · <opening-message snippet>`,
+  with the peer omitted when the caller sends no `x-a2a-peer` header — and
   reused for the rest of the task, so the agent keeps the conversation's context.
 - Each peer message runs through the normal session prompt path — the same agents, tools, and
   safety rules as a local prompt, with the optional `agent`/`model` config pinning the target.

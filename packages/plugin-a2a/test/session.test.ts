@@ -53,12 +53,12 @@ describe("session runner", () => {
 
     const first = await runner.run("task-1", "hi")
     const second = await runner.run("task-1", "again")
-    const other = await runner.run("task-2", "hi")
+    const other = await runner.run("task-2", "hello")
 
     expect(first.sessionID).toBe("ses_1")
     expect(second.sessionID).toBe("ses_1")
     expect(other.sessionID).toBe("ses_2")
-    expect(fake.created).toEqual([{ title: "A2A task-1" }, { title: "A2A task-2" }])
+    expect(fake.created).toEqual([{ title: "A2A · hi" }, { title: "A2A · hello" }])
     expect(fake.prompts.map((call) => call.id)).toEqual(["ses_1", "ses_1", "ses_2"])
   })
 
@@ -143,11 +143,22 @@ describe("session runner", () => {
     )
   })
 
-  test("names the session record after the peer", async () => {
+  test("names the session record after the peer and the opening message", async () => {
     const fake = fakeClient()
     const runner = createSessionRunner({ client: fake.client })
     await runner.run("task-1", "hi", "alice")
-    expect(fake.created).toEqual([{ title: "A2A alice task-1" }])
+    expect(fake.created).toEqual([{ title: "A2A alice · hi" }])
+  })
+
+  test("derives a scannable title from the opening message", async () => {
+    const fake = fakeClient()
+    const runner = createSessionRunner({ client: fake.client })
+    await runner.run("task-1", "  Hello\n\nworld  this message is deliberately long so the title must be cut short ")
+    await runner.run("task-2", "   ", "alice")
+    expect(fake.created).toEqual([
+      { title: "A2A · Hello world this message is deliberately long…" },
+      { title: "A2A alice · task-2" },
+    ])
   })
 
   test("a rule-denied tool call fails the run with the permission error", async () => {
