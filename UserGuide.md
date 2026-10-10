@@ -169,18 +169,87 @@ On your side, the session list shows the `A2A …` session and both turns land i
 
 ### 4.3 Permission parity (A2A-007)
 
-*[Fill in — owner: Dilshodbek: permission parity — every inbound turn passes the same
-allow / ask / deny checks as local work. Cover what happens on **allow**, how the approval
-prompt appears on **ask**, and what the peer and the local user each see on **deny**; also where
-the peer's identity is saved with the session. Sources: PR #22 and the A2A-007 row in the test
-matrix.]*
+**What it does.** Every inbound turn runs through the same session prompt path — and therefore
+the same allow / ask / deny permission checks — as a prompt you typed yourself. Parity is by
+construction: the inbound bridge calls the normal `SessionRunner`, so a peer message can do
+nothing your local agent couldn't. The peer's identity (its `x-a2a-peer` name, or its socket
+address when it sends none) is recorded on the task and the backing session, so you can always
+see *who* triggered a run.
+
+**How to use.** There is nothing to configure — your existing permission rules apply as-is:
+
+- **allow** — the tool call executes inside the task's session and the reply goes back to the
+  peer, like any other turn.
+- **ask** — the approval prompt appears in your session UI (the task's session is a normal
+  opencode session titled `A2A <peer> · …`); the turn waits until you approve or reject.
+- **deny** — a rule-denied tool call or a rejected prompt fails the turn: the task settles
+  `TASK_STATE_FAILED` with a short reason, and the peer sees that state instead of a reply. You
+  see the failed run inside the `A2A …` session with the permission error attached.
+
+**How to user-test.**
+1. Enable the plugin with a rule that denies an easy-to-trigger tool (for example, deny `edit`
+  in your permission config) and a peer that can reach you.
+2. Have the peer send a message that would use that tool. Expected: the task ends
+   `TASK_STATE_FAILED`; the peer's follow-up view shows the failure, and the task's session in
+   your session list shows the denied call plus which peer caused it.
+3. Repeat with an `ask`-level tool: the approval prompt appears in the task's session, and the
+   turn proceeds only after you decide.
+
+**Automated tests.** `packages/plugin-a2a/test/session.test.ts` › "a rule-denied tool call
+fails the run with the permission error" and "a rejected permission prompt fails the run even
+without reply text" (deny/ask both surface as failures, not silent replies); `test/inbound.test.ts`
+› "a self-identified peer name reaches the task record and the runner" and "the remote address
+identifies peers that send no header" (peer identity lands where the run and the thread can show
+it); `packages/a2a/test/server.test.ts` › the `x-a2a-peer` header tests. The denied-run tests
+drive the real `SessionRunner` permission path — the same code local prompts use — so parity
+can't silently regress behind a mock.
 
 ### 4.4 Conversation turn events (A2A-008)
 
-*[Fill in — owner: Dilshodbek: the turn-event contract integrators can observe —
-`a2a.task.dispatched` / `updated` / `completed` / `failed`, plus one `a2a.conversation.turn` per
-sent or received message (speaker, turn number, taskId, peerId, content) — and where to watch
-them (the global event stream). Sources: PR #24 and the A2A-008 row in the test matrix.]*
+**What it does.** Every A2A activity emits typed events on opencode's global event bus — the
+same fan-out the Desktop and TUI panels read — so a third-party integration can follow a
+conversation as it happens instead of polling. The contract is five event types:
+
+- `a2a.task.dispatched` — a task was created (first seen on this side), with its initial state.
+- `a2a.task.updated` — the task moved between non-terminal states (`WORKING`,
+  `INPUT_REQUIRED`, `CANCELED`, …).
+- `a2a.task.completed` / `a2a.task.failed` — the task reached a terminal state; the payload's
+  `content` carries the closing message (the turn-cap line or the failure reason) and a
+  completed task with a verdict also carries `artifact`.
+- `a2a.conversation.turn` — one event per message, in *both* directions:
+  `{ speaker: "local" | "remote", turn, taskId, peerId, content }`. `local` is this instance's
+  own message, `remote` the peer's — so a loopback exchange emits both halves of every pair.
+
+Task events carry `{ taskId, peerId, state, content? }`; cancels emit the same
+`a2a.task.updated` with `TASK_STATE_CANCELED`.
+
+**How to use.** Read them from the serve event stream — the same SSE endpoint the app subscribes
+to:
+
+```sh
+curl -N http://localhost:4096/global/event
+```
+
+Each A2A event arrives as `{ type: "a2a.task.*" | "a2a.conversation.turn", properties }` while a
+conversation runs — you can watch a peer's `a2a_ask` call produce `dispatched` → `turn` (local) →
+`turn` (remote) → `updated` in real time.
+
+**How to user-test.**
+1. Start `opencode serve` with the plugin enabled and subscribe to `/global/event` as above.
+2. Drive one exchange (an `a2a_ask` in a session, or §5's demos). Expected: the events arrive in
+   order — `task.dispatched` once, one `conversation.turn` per message alternating
+   `local`/`remote`, and `task.updated`/`task.completed` (or `failed`) as the task settles.
+3. Cancel mid-run (§4.6): an `a2a.task.updated` with `TASK_STATE_CANCELED` lands on the stream
+   too — cancels are not a hidden path.
+
+**Automated tests.** `packages/a2a/test/events.test.ts` (the five-type contract and the payload
+shape — task events carry `taskId`/`state`, turn events carry `speaker`/`turn`/`content`);
+`packages/plugin-a2a/test/events.test.ts` (a full inbound exchange emits `dispatched` → turns →
+`INPUT_REQUIRED`; the cap emits `task.completed`; cancel emits `TASK_STATE_CANCELED`; a failing
+run emits `task.failed` with the reason; the outbound `a2a_ask` path emits the same sequence; and
+`createEventEmitter` delivers everything onto the real `GlobalBus`). Both directions and every
+terminal path are asserted on the bus itself — the contract integrators consume, not an internal
+shim.
 
 ### 4.5 The thread in the session view (A2A-009)
 
@@ -299,23 +368,164 @@ After a scripted exchange, the sessions listing shows the task with the right pe
 
 ### 4.10 TUI panel (A2A-016)
 
-*[Fill in — owner: Dilshodbek: panel setup (the `tui.json` plugin entry), the `/a2a`,
-`/a2a-new`, and `/a2a-peers` commands, and the thread keys (`m`/`enter` reply, `x` cancel,
-`b` back, `r` refresh, `esc` close). Reuse the verified steps in the package README's
-"TUI panel" section.]*
+**What it does.** The terminal surface for A2A: browse current and past sessions, start and
+continue conversations, and manage `allowedPeers` — all over the local control API (§4.8),
+with live updates riding the `a2a.*` events from §4.4.
+
+**How to use.** TUI plugins are declared in **`tui.json`** — *not* `opencode.json`, which only
+feeds server plugins. Put either `<project>/tui.json` or `<project>/.opencode/tui.json` in the
+directory you launch the TUI on:
+
+```json
+{ "plugin": ["file:///absolute/path/to/packages/plugin-a2a"] }
+```
+
+If that project directory is a scratch dir (no repo checkout), also give it a `tsconfig.json` so
+the plugin's `.tsx` compiles:
+
+```json
+{ "compilerOptions": { "jsx": "preserve", "jsxImportSource": "@opentui/solid", "customConditions": ["browser"] } }
+```
+
+Once loaded, type `/` in the prompt — three commands appear:
+
+- **`/a2a` — A2A: Sessions.** Current and past tasks (peer, direction, state, turns, age;
+  running on top). Re-running it while the panel is open closes it. `enter` opens the thread:
+  turns in order with speaker labels, the state chip, the verdict artifact when present, and the
+  turn-cap message rendered as the bounded ending rather than an error. `INPUT_REQUIRED` reads
+  as `your turn` on outbound tasks (the peer is waiting for *your* reply) and `awaiting input`
+  inbound. Thread keys: `m`/`enter` reply (outbound + `INPUT_REQUIRED` only), `x` cancel a
+  running task, `b`/`backspace` back to the list, arrows/`pageup`/`pagedown` scroll, `r`
+  refresh, `esc` close.
+- **`/a2a-new` — A2A: New conversation.** Peer picker (configured `allowedPeers` plus names
+  seen in sessions), then a message prompt; follow-ups reuse the same `taskId`.
+- **`/a2a-peers` — A2A: Peers.** The `allowedPeers` map plus your own identity and listener
+  status. `enter` on a peer offers **Test** (fetches the agent card — the peer's *claimed* name,
+  which may differ from your local key) and **Remove**; "Add peer" asks for a name and URL.
+
+**How to user-test (no model or second machine needed).** The demo control stub serves the same
+`/a2a/*` contract in front of a real loopback peer with a scripted echo runner:
+
+```sh
+cd packages/plugin-a2a
+bun demo/control-stub.ts        # writes .opencode/a2a/admin.port in the cwd; serves the `loop` peer
+```
+
+Then launch the TUI on that directory and:
+
+1. `/a2a-new` → pick `loop` → send a message. Expected: the thread shows your turn, then the
+   stub's reply, state `your turn`.
+2. `m`, type a follow-up, `enter`. Expected: another pair of turns on the same task.
+3. `x` → confirm. Expected: the task settles `CANCELED`; `b` returns to the list.
+4. Restart the stub with `A2A_STUB_TURNS=1` and run one exchange. Expected: `COMPLETED` with
+   "max turns reached without verdict" plus a verdict artifact in the thread.
+5. `/a2a-peers`: `loop` is listed, your own identity row shows `listening`; **Test** reports the
+   card name (`stub-agent`).
+
+Cross-check the panel against the wire: `curl localhost:$(cat .opencode/a2a/admin.port)/a2a/sessions`
+shows the same task, direction `outbound`, and turn count.
+
+**Automated tests.** `packages/plugin-a2a/test/tui-panel.test.tsx` (renders the panel headlessly
+through the real `testRender` dialog stack against a live stubbed `/a2a/*` server: session list →
+thread, a live `a2a.conversation.turn` event adds a turn without refetch, the `m` reply path
+POSTs to `/a2a/conversations/:id/messages`, slash-name registration, and the open/close toggle);
+`test/format.test.ts` (state labels and tones, running-first sort, direction/peer rendering, the
+cap message as a bounded ending); `test/control.test.ts` (client routes, payload shapes,
+`ControlError`, and the three-step endpoint discovery including stale port files). The headless
+suite exercises the same code the interactive walkthrough drives — the manual run above is the
+visual confirmation, not untested surface.
 
 ## 5. Demos
 
 ### 5.1 Two-machine debate — four turns with a verdict (A2A-010)
 
-*[Fill in — owner: Dilshodbek: setup, run steps, and expected result — four turns on one
-`taskId`, ending `TASK_STATE_COMPLETED` with a verdict Artifact readable via `tasks/get`. Reuse
-`packages/plugin-a2a/demo/README.md` and `demo/TWO-MACHINE.md`.]*
+`demo/debate.ts` plays **Agent A** in a scripted four-turn debate (open → reply → challenge →
+final) against your opencode peer (**Agent B**), then reads the verdict `Artifact` back over
+`tasks/get`. It runs on plain Bun — no model needed on the A side.
+
+**Setup (Agent B — the opencode machine).**
+
+1. Configure the plugin in `opencode.json` (§3): `enabled: true`, `name: "agent-b"`, a fixed
+   `listenPort` (e.g. `4000`), `allowedPeers: { "agent-a": "http://<agent-a-host>:4000" }`,
+   `maxTurns: 4`. Agent B needs a working model credential — its session runner writes the
+   replies (see §6 if a turn fails with an API-key error).
+2. Start opencode in the configured directory; the log shows
+   `a2a listen url=http://0.0.0.0:4000`. The listener binds on all interfaces, so open the port
+   in the firewall (or tunnel it — see §6) when the machines aren't on one LAN.
+3. Full per-machine walkthrough — credentials, `opencode.json` per side, firewall rules, the
+   `curl /config` bootstrap that `serve` mode needs once per start — is in
+   `packages/plugin-a2a/demo/TWO-MACHINE.md`.
+
+**Run (Agent A).**
+
+```sh
+cd packages/plugin-a2a
+bun run demo/debate.ts --peer http://<agent-b-host>:4000 --name agent-a
+```
+
+**Expected output.**
+
+```
+peer card: agent-b @ http://<host>:4000
+
+[turn 1] agent-a → Resolved: spaces are objectively better than tabs ...
+task <id> created (TASK_STATE_SUBMITTED)
+
+[turn 2] agent-b → <B's reply>
+
+[turn 3] agent-a → Weak argument. EditorConfig and gofmt ...
+[turn 4] agent-b → <B's final answer>
+
+final state: TASK_STATE_COMPLETED
+verdict artifact (<id>-verdict):
+Verdict: <B's verdict text>
+```
+
+All four turns share one `taskId`; the script fails loudly if the task never completes or
+`tasks/get` returns no verdict artifact. Same machine works too — point `--peer` at
+`http://localhost:4000`.
+
+**Automated tests.** This is a scripted walkthrough by design (it *is* the acceptance evidence
+for cross-machine A2A-010). Its mechanics are covered by `test/peer-integration.test.ts` —
+two-turn exchanges over `message/stream` and `message/send` against a real in-process peer —
+and the cap/verdict ending by `test/ask.test.ts` and `test/inbound.test.ts`; the demo adds the
+two-machine setup and the artifact read-back.
 
 ### 5.2 Non-OpenCode peer check (A2A-010)
 
-*[Fill in — owner: Dilshodbek: `demo/peer-check.py` run steps and expected output (Python
-stdlib only — proves standard-first interop for a non-opencode peer).]*
+`demo/peer-check.py` is a non-opencode A2A client written against **Python's standard library
+only** — no `a2a-sdk`, no dependencies, plain JSON-RPC over HTTP. That is the point of the
+check: it proves the bridge speaks standard A2A, so any spec-conforming peer can drive it — not
+just another opencode instance.
+
+**Run.** Needs an opencode peer up (Agent B setup in §5.1 — plugin enabled, `listenPort` fixed
+and reachable):
+
+```sh
+cd packages/plugin-a2a
+python3 demo/peer-check.py http://<agent-b-host>:4000
+```
+
+**Expected output.**
+
+```
+peer card: agent-b @ http://<host>:4000
+task <id> created (TASK_STATE_SUBMITTED)
+turn 1 reply: ...
+turn 2 reply: ...
+final state: TASK_STATE_INPUT_REQUIRED
+peer check passed: same taskId carried both turns and both replies came back.
+```
+
+Two turns only, so the task lands in `INPUT_REQUIRED` awaiting a third; `maxTurns: 2` on the B
+side makes it end `COMPLETED` instead — either is a pass. What matters: both replies arrive on
+the **same `taskId`** over raw JSON-RPC (`message/send` → `tasks/get`).
+
+**Automated tests.** The Python client is itself the test — it re-proves the inbound path from
+outside opencode. The protocol surface it exercises is covered in-repo by
+`test/inbound.test.ts` (replies on one `taskId`, `INPUT_REQUIRED` between turns) and
+`test/peer-integration.test.ts` (the same exchange through the plugin's own client), so the
+check verifies wire-level compatibility rather than implementation details.
 
 ### 5.3 Bidirectional smoke test (A2A-011)
 
@@ -332,10 +542,10 @@ cross-machine variants. Run evidence: PR #34.]*
 | A turn is denied or waiting for approval | [Fill in: permission settings and approval steps] |
 | The conversation ends at the turn limit | This is a normal completed outcome. [Fill in: how to start a new task if needed.] |
 | The thread or verdict is missing | [Fill in: event, task state, and Artifact checks] |
-
-*[Fill in — owner: Dilshodbek (seed): the known failures from `demo/TWO-MACHINE.md` —
-connection refused / plugin bootstrap, model key, refused peer, firewall/NAT. Then everyone adds
-entries found during the non-author walkthroughs; Tram curates.]*
+| `Connection refused` on the A2A port | The peer's opencode isn't running, or its project wasn't bootstrapped this session — `serve` mode needs one `curl "http://localhost:<serve-port>/config?directory=<path>"` after every server start before plugins load (the TUI does this automatically). Verify with `curl http://<peer>:<port>/.well-known/agent-card.json`. |
+| Task fails with `Invalid API key` | Inbound replies run a real model. Pin `a2a.model` to a provider you have a key for (`auth login` or an env var) and restart — OpenCode Zen does not work on this fork. |
+| `a2a_ask` refuses the peer / "Unknown A2A peer" | The name isn't in `allowedPeers`, or the URL doesn't match exactly — scheme, host, and port all count (`http://host:4000` ≠ `http://host:4322`). Check the effective map under Settings → A2A or `/a2a-peers`. |
+| Message sent, then silent timeout | Firewall or NAT: `listenPort` isn't reachable inbound. Test `curl http://<peer-ip>:<port>/.well-known/agent-card.json` **from the other machine**; open the port (`New-NetFirewallRule` / `ufw allow`), or tunnel (`ngrok http <port>`) and put the tunnel URL in `allowedPeers`. |
 
 ## 7. Reference
 
