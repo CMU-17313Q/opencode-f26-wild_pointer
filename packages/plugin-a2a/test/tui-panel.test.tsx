@@ -85,6 +85,21 @@ async function waitForFrame(
   }
 }
 
+async function waitForGone(
+  app: { captureCharFrame: () => string; renderOnce: () => Promise<void> },
+  needle: string,
+  timeout = 4000,
+) {
+  const start = Date.now()
+  while (app.captureCharFrame().includes(needle)) {
+    if (Date.now() - start > timeout) {
+      throw new Error(`timed out waiting for ${JSON.stringify(needle)} to leave the frame:\n${app.captureCharFrame()}`)
+    }
+    await app.renderOnce()
+    await Bun.sleep(10)
+  }
+}
+
 async function wait(fn: () => boolean, timeout = 4000) {
   const start = Date.now()
   while (!fn()) {
@@ -276,8 +291,7 @@ test("a2a.sessions lists registry rows and opens the thread", async () => {
     await waitForFrame(panel.app, "Reply ·", 2000)
     panel.app.mockInput.typeText("next turn")
     panel.app.mockInput.pressEnter()
-    await Bun.sleep(300)
-    await panel.app.renderOnce()
+    await wait(() => replies.length > 0)
     expect(replies).toEqual(["next turn"])
     await waitForFrame(panel.app, "peer-a", 2000)
   } finally {
@@ -327,23 +341,17 @@ test("a2a commands expose slash names and toggle the sessions panel", async () =
 
     // re-running the command while the panel is open toggles it closed
     panel.keymap.dispatchCommand("a2a.sessions")
-    await Bun.sleep(150)
-    await panel.app.renderOnce()
-    expect(panel.frame()).not.toContain("A2A sessions")
+    await waitForGone(panel.app, "A2A sessions")
 
     panel.keymap.dispatchCommand("a2a.sessions")
     await waitForFrame(panel.app, "A2A sessions", 2000)
 
     // letters land in the open dialog's filter input, not the palette
     panel.app.mockInput.typeText("A2A")
-    await Bun.sleep(150)
-    await panel.app.renderOnce()
-    expect(panel.frame()).toContain("No results found")
+    await waitForFrame(panel.app, "No results found")
 
     panel.app.mockInput.pressEscape()
-    await Bun.sleep(150)
-    await panel.app.renderOnce()
-    expect(panel.frame()).not.toContain("A2A sessions")
+    await waitForGone(panel.app, "A2A sessions")
 
     panel.keymap.dispatchCommand("a2a.sessions")
     await waitForFrame(panel.app, "A2A sessions", 2000)
