@@ -216,8 +216,8 @@ Legend: **file › test name** (suite paths are relative to the package's `test/
 
 ## CI proofs (A2A-017 acceptance)
 
-- **Before:** feat/a2a unit run [38054532729](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/38054532729) — 10 tasks, no a2a/plugin-a2a/tui test tasks.
-- **After:** _links appended when the `feat/a2a-testing` run completes._
-- **Sabotage:** _red run + revert run links appended (same section)._
-- **`main` latest `test` + `typecheck`:** green as of 2026-09-22 (`b901727`).
+- **Before:** `feat/a2a` unit run [38054532729](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/38054532729) — 10 tasks; zero a2a/plugin-a2a/tui test tasks.
+- **After:** `feat/a2a-testing` unit run [38061761898](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/38061761898) — 13 tasks; the log shows `a2a:test` (67 pass), `@opencode-ai/plugin-a2a:test` (130 pass), `@opencode-ai/tui:test` (193 pass + 1 skip). `typecheck` [38061761887](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/38061761887); `e2e (smoke)` green in the same run. (First run after the wiring paid a cold turbo cache; later runs are faster.)
+- **Sabotage (proof the gate bites):** scratch branch `feat/a2a-sabotage` broke one assertion in the newly-wired `a2a` suite (`tracker.test.ts`, the cap test) → `unit` [38062553565](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/38062553565) **failed** (`a2a:test`: 66 pass / 1 fail) → revert commit on the same branch → green [38062897693](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/38062897693). Branch kept as scratch evidence.
+- **`main` latest `test` + `typecheck`:** green as of 2026-09-22 (`b901727`) — [test](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/35798087453), [typecheck](https://github.com/CMU-17313Q/opencode-f26-wild_pointer/actions/runs/35798087452).
 - **Parity:** all three suites verified green under bun 1.3.14 (the CI version) on 2026-10-10 before pushing.
