@@ -33,23 +33,11 @@ it when needed.
 This release does not include a debate scoring or judging engine, multi-agent tournaments,
 history search, or rich verdict blocks.
 
-**Peer.** Any A2A-speaking agent you exchange tasks with. Outbound calls name a peer from `allowedPeers` (see §3); inbound callers are recorded under the name they send in the `x-a2a-peer` header, falling back to their socket address when they send none — so threads say `agent-b`, not an IP.
-
-**Task.** One conversation = one task ID. The first `message/send` creates the task (`TASK_STATE_SUBMITTED`); every follow-up carries the same `taskId`, and either side can read the whole thing back with `tasks/get`, which returns the status plus the full message history.
-
-**Turn.** One message in either direction. Turns are numbered from 0 and each carries a speaker: `local` (this machine sent it) or `remote` (the peer sent it). The thread view (§4.5) renders turns in order with speaker, peer identity, and turn number.
-
-**Task states.** `TASK_STATE_SUBMITTED` (created, no reply yet) → `TASK_STATE_WORKING` (a reply is being produced) → `TASK_STATE_INPUT_REQUIRED` (a reply landed and the task waits for the next message). Terminal states: `TASK_STATE_COMPLETED` (finished — including hitting the turn cap, which is a normal bounded outcome, not an error), `TASK_STATE_FAILED` (a real error: network, permission, or timeout), `TASK_STATE_CANCELED` (stopped via `tasks/cancel`, §4.6).
-
-**Turn cap.** `maxTurns` (default `4`, `0` means unbounded) counts every message from both speakers. Reaching it completes the task with the status message `max turns reached without verdict`. To keep talking, start a new task.
-
-**Idempotency.** A retried message keeps its `messageId`, and a duplicate `messageId` never appends a second turn — resends are safe.
-
-**Timeouts.** A turn that runs longer than `turnTimeoutMs` (default `120_000` ms) is aborted and the task fails cleanly instead of sitting in `WORKING` forever.
-
-**Discovery.** Before talking, a client fetches the peer's Agent Card at `/.well-known/agent-card.json` — name, capabilities (e.g. streaming), and skills. If the card is unreachable, the peer isn't (see §6).
-
-**Automated tests.** `packages/a2a/test/types.test.ts` (Task/Part/Message/AgentCard accept + reject suites) and `conversation.test.ts` (Speaker/Turn accept + reject) pin the wire shapes; `tracker.test.ts › policy > 6-turn attempt stops at 4 with completed and the cap message`, `note > duplicate messageId returns the existing turn without appending`, and `policy > timed-out task is failed` pin the cap, idempotency, and timeout rules; `client.test.ts › fetchAgentCard` pins discovery. Full protocol suite: `cd packages/a2a && bun test` (67 tests).
+*[Fill in — owner: George: core concepts — what a peer, task, turn, and speaker are; the task
+states (`TASK_STATE_SUBMITTED` / `WORKING` / `INPUT_REQUIRED` / `COMPLETED` / `FAILED` /
+`CANCELED`); task status and history via `tasks/get`; turn counting (every message, either
+direction) and the cap; idempotency and timeout outcomes; peer discovery and the Agent Card.
+Sources: `packages/a2a/INTERFACES.md` and the sprint-plan glossary.]*
 
 ## 2. Quickstart
 
@@ -541,29 +529,8 @@ check verifies wire-level compatibility rather than implementation details.
 
 ### 5.3 Bidirectional smoke test (A2A-011)
 
-**What it does.** Proves both directions in one run with one `taskId` per direction and turn events present throughout. Direction A (opencode → peer) goes through the real `a2a_ask` tool with a recording emitter; direction B (peer → opencode) speaks raw A2A to a live inbound bridge while turn events are captured off the serve SSE stream (`/global/event`) — the same fan-out the thread view reads. Any missing reply, broken `taskId` reuse, or absent turn event fails loudly with a non-zero exit.
-
-**How to use.** Needs your own serve + A2A listener up (Agent B setup in §5.1), since direction B targets your live inbound and reads your serve event stream:
-
-```sh
-cd packages/plugin-a2a
-bun run demo/smoke-bidirectional.ts \
-  --peer http://<peer-host>:4000 --peer-id agent-a \
-  --inbound http://localhost:4000 --serve http://localhost:4096 \
-  --name agent-b
-```
-
-Loopback (one machine, real model): point `--peer` at your own A2A port, as above. Cross-machine: `--peer` is the friend's URL while `--inbound`/`--serve` stay yours; the friend mirrors with the flags flipped.
-
-**How to user-test.** Run either variant and read the tail:
-
-```
-SMOKE PASS: both directions completed 2 turns (tasks <id-a>, <id-b>) with turn events
-```
-
-Direction A asserts both replies arrive under one `taskId` through `a2a_ask`, plus `local@0, remote@1, local@2, remote@3` turn events and `task.dispatched`. Direction B asserts the same over the wire, plus `remote@0, local@1, remote@2, local@3` turn events observed on the serve stream. Confirm direction A on the peer's side too: the same `taskId` must resolve via `tasks/get` on the peer's listener (and return "not found" on yours — proving where it lives).
-
-**Automated tests.** The no-model equivalent runs in CI: `packages/plugin-a2a/test/peer-integration.test.ts › two turns in one task over message/stream, then the caps close it` and `message/send drives the same bridge without streaming`. The scripted live runs (loopback + cross-machine, both directions) are recorded as run evidence in PR #34.
+*[Fill in — owner: George: `demo/smoke-bidirectional.ts` steps and expected tail, loopback and
+cross-machine variants. Run evidence: PR #34.]*
 
 ## 6. Troubleshooting
 
