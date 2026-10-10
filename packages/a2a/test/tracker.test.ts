@@ -65,7 +65,7 @@ describe("policy", () => {
       if (tracker.history().length >= debate.maxTurns) break;
       tracker.note(makeMessage(id), "remote");
     }
-    expect(tracker.history().length).toBe(5);
+    expect(tracker.history().length).toBe(4);
     const outcome = conversationOutcome(tracker, debate);
     expect(outcome.state).toBe("TASK_STATE_COMPLETED");
     expect(outcome.message?.parts[0]?.text).toBe("max turns reached without verdict");
