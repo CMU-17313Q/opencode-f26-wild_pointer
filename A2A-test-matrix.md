@@ -140,16 +140,16 @@ Legend: **file › test name** (suite paths are relative to the package's `test/
 
 | Acceptance criterion | Covered by |
 | --- | --- |
-| 4-turn conversation reads as a thread in order, peer identity always visible | app: `components/a2a/inline-thread.test.tsx` (fold logic + `threadDataFromRecord` mapping incl. peer identity per row), `live-threads.test.ts`; TUI: `format.test.ts › session rows > directionMark and sessionPeer render the row identity` |
-| State moves `SUBMITTED` → `INPUT_REQUIRED` → `COMPLETED` with the verdict shown | `thread-store.test.ts › applyA2AEvent > dispatched starts a task with its first state and status`, `only appends a state when it differs from the last`, `attaches a verdict artifact and status message`; TUI verdict rendering: `format.test.ts › turns and verdicts > artifactText joins part text` + TUI panel thread (`tui.tsx`) |
+| Conversation messages appear in order with peer identity visible | app: `thread-store.test.ts › applyA2AEvent > appends turns in arrival order with their index and speaker` (two-turn fixture), `live-threads.test.ts › threadDataFromRecord > maps persisted history and states into thread data`, `inline-thread.test.tsx › A2AInlineThread DOM > renders the header and the captured conversation` (two-turn fixture; conditional DOM suite); TUI: `format.test.ts › session rows > directionMark and sessionPeer render the row identity`. The four-turn sequence itself is not currently asserted by an automated UI test. |
+| State moves `SUBMITTED` → `INPUT_REQUIRED` → `COMPLETED` with the verdict shown | `thread-store.test.ts › applyA2AEvent > dispatched starts a task with its first state and status`, `only appends a state when it differs from the last`, `attaches a verdict artifact and status message`; TUI verdict rendering: `format.test.ts › turns and verdicts > artifactText joins part text` + TUI panel thread (`tui.tsx`). The desktop body deliberately omits a duplicate verdict block; the TUI renders the Artifact. |
 | — known limitation | 3 DOM-render tests in `inline-thread.test.tsx` are conditionally skipped (the bun unit runner compiles `.tsx` with the classic React transform; a Solid JSX transform setup isn't available for `src/` tests). Documented in-file; data layers are covered by the non-DOM tests above. |
 
 ### A2A-010 — Cross-computer debate demo (PRs #25/#34)
 
 | Acceptance criterion | Covered by |
 | --- | --- |
-| 4-turn debate → `COMPLETED` with verdict `Artifact` readable via `tasks/get` | Manual (interactive demo): `demo/debate.ts`; instructions in `demo/README.md` + `demo/TWO-MACHINE.md`; run evidence in PR #25 / issue #10 |
-| Peer → opencode multi-turn with a non-opencode peer | Manual: `demo/peer-check.py` (Python 3 stdlib only, no `a2a-sdk`) |
+| 4-turn debate → `COMPLETED` with verdict `Artifact` readable via `tasks/get` | Manual script: `demo/debate.ts`; instructions and expected output in `demo/README.md` + `demo/TWO-MACHINE.md`. The PR #25 record reviewed for this audit does not include a successful live-run transcript; capture one to complete manual acceptance evidence. |
+| Peer → opencode multi-turn with a non-opencode peer | Manual script: `demo/peer-check.py` (Python 3 stdlib only, no `a2a-sdk`), with instructions in `demo/README.md`. A successful live run transcript still needs to be recorded. |
 | Scripts + short README committed | `demo/debate.ts`, `demo/peer-check.py`, `demo/README.md`, `demo/TWO-MACHINE.md` (all tracked) |
 
 ### A2A-011 — Bidirectional smoke test (PR #34)
