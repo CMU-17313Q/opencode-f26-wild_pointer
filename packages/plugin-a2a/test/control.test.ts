@@ -37,8 +37,8 @@ function stub(handler?: (call: Call) => Response | undefined) {
       if (call.path === "/a2a/sessions" && call.method === "GET") return Response.json(sessions)
       if (call.path === "/a2a/sessions/task-1" && call.method === "GET")
         return Response.json({
-          session: sessions[0],
-          turns: [{ index: 0, speaker: "local", content: "hello" }],
+          ...sessions[0],
+          history: [{ speaker: "local", turn: 0, content: "hello" }],
         })
       if (call.path === "/a2a/conversations" && call.method === "POST")
         return Response.json({ peerId: "loop", taskId: "task-1", state: "TASK_STATE_INPUT_REQUIRED" })
@@ -49,9 +49,9 @@ function stub(handler?: (call: Call) => Response | undefined) {
       if (call.path === "/a2a/peers" && call.method === "GET")
         return Response.json({
           peers: [{ name: "loop", url: "http://127.0.0.1:4322" }],
-          self: { name: "stub-agent", port: 4322, enabled: true },
-          writable: true,
         })
+      if (call.path === "/a2a/self" && call.method === "GET")
+        return Response.json({ enabled: true, name: "stub-agent", listenPort: 4322 })
       if (call.path === "/a2a/peers" && call.method === "POST") return Response.json(call.body, { status: 201 })
       if (call.path === "/a2a/peers/loop/test" && call.method === "POST")
         return Response.json({ peer: "loop", name: "stub-agent" })
@@ -103,7 +103,6 @@ describe("createControl", () => {
     const info = await control.peers()
     expect(info.peers).toEqual([{ name: "loop", url: "http://127.0.0.1:4322" }])
     expect(info.self).toMatchObject({ name: "stub-agent", port: 4322 })
-    expect(info.writable).toBe(true)
 
     await control.addPeer("agent-b", "http://b:4322")
     await control.removePeer("loop")
@@ -111,7 +110,10 @@ describe("createControl", () => {
     expect(test).toMatchObject({ peer: "loop", name: "stub-agent" })
     expect(server.calls.map((call) => `${call.method} ${call.path}`)).toContain("POST /a2a/peers")
     expect(server.calls.map((call) => `${call.method} ${call.path}`)).toContain("DELETE /a2a/peers/loop")
-    expect(server.calls[1].body).toEqual({ name: "agent-b", url: "http://b:4322" })
+    expect(server.calls.find((call) => call.path === "/a2a/peers" && call.method === "POST")?.body).toEqual({
+      name: "agent-b",
+      url: "http://b:4322",
+    })
   })
 
   test("ControlError carries status and server error text", async () => {

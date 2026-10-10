@@ -55,6 +55,22 @@ export const ControlTurnSchema = z.object({
 })
 export type ControlTurn = z.infer<typeof ControlTurnSchema>
 
+// Registry TaskTurn (registry.ts): the recorded conversation the detail route
+// serves so a thread can render after the fact, not only from live events.
+const HistoryTurnSchema = z
+  .object({
+    speaker: SpeakerSchema,
+    turn: z.number().int().nonnegative(),
+    peerId: z.string().optional(),
+    content: z.string(),
+  })
+  .transform((turn): ControlTurn => ({
+    index: turn.turn,
+    speaker: turn.speaker,
+    peerId: turn.peerId,
+    content: turn.content,
+  }))
+
 const SessionsResponseSchema = z.union([
   z.object({ sessions: z.array(ControlSessionSchema) }),
   z.array(ControlSessionSchema).transform((sessions) => ({ sessions })),
@@ -62,9 +78,15 @@ const SessionsResponseSchema = z.union([
 
 const SessionDetailSchema = z.union([
   z
-    .object({ session: ControlSessionSchema, turns: z.array(ControlTurnSchema).optional() })
-    .transform((detail) => ({ session: detail.session, turns: detail.turns ?? [] })),
-  ControlSessionSchema.transform((session) => ({ session, turns: [] as ControlTurn[] })),
+    .object({
+      session: ControlSessionSchema.and(z.object({ history: z.array(HistoryTurnSchema).optional() })),
+      turns: z.array(ControlTurnSchema).optional(),
+    })
+    .transform((detail) => ({ session: detail.session, turns: detail.turns ?? detail.session.history ?? [] })),
+  ControlSessionSchema.and(z.object({ history: z.array(HistoryTurnSchema).optional() })).transform((record) => ({
+    session: record,
+    turns: record.history ?? [],
+  })),
 ])
 export type SessionDetail = z.infer<typeof SessionDetailSchema>
 
@@ -96,7 +118,10 @@ export type ControlPeer = z.infer<typeof ControlPeerSchema>
 
 const PeersResponseSchema = z.object({
   peers: z.array(ControlPeerSchema).optional().default([]),
-  // Own identity + listener status for the peers dashboard.
+  // Own identity + listener status for the peers dashboard. The admin API
+  // serves this from GET /a2a/self instead; peers() merges it here so views
+  // read one shape. (The stub still inlines it, which is why the field
+  // survives on this schema.)
   self: z
     .object({
       name: z.string().optional(),
@@ -110,6 +135,15 @@ const PeersResponseSchema = z.object({
   hint: z.string().optional(),
 })
 export type PeersInfo = z.infer<typeof PeersResponseSchema>
+
+// GET /a2a/self (admin.ts): the identity a peer should add, plus reachability.
+const SelfResponseSchema = z.object({
+  enabled: z.boolean().optional(),
+  name: z.string().optional(),
+  listenPort: z.number().optional(),
+  url: z.string().optional(),
+  lanUrls: z.array(z.string()).optional(),
+})
 
 const PeerTestSchema = z.object({
   peer: z.string(),
@@ -174,7 +208,13 @@ export function createControl(base: string, fetcher: ControlFetch = fetch): A2AC
       request("POST", `/a2a/conversations/${encodeURIComponent(taskId)}/messages`, { message: text }, TurnResultSchema),
     cancel: (taskId) =>
       request("POST", `/a2a/conversations/${encodeURIComponent(taskId)}/cancel`, undefined, CancelResultSchema),
-    peers: () => request("GET", "/a2a/peers", undefined, PeersResponseSchema),
+    peers: async () => {
+      const info = await request("GET", "/a2a/peers", undefined, PeersResponseSchema)
+      if (info.self !== undefined) return info
+      const own = await request("GET", "/a2a/self", undefined, SelfResponseSchema).catch(() => undefined)
+      if (own === undefined) return info
+      return { ...info, self: { name: own.name, port: own.listenPort, enabled: own.enabled } }
+    },
     addPeer: async (name, url) => {
       await request("POST", "/a2a/peers", { name, url }, z.unknown())
     },
