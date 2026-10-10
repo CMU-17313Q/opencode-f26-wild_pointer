@@ -61,6 +61,7 @@ import { TerminalProvider, useTerminal } from "@/context/terminal"
 import { PromptInput } from "@/components/prompt-input"
 import { PromptInputV2Composer, usePromptInputV2Controller } from "@/components/prompt-input-v2"
 import { useSettingsCommand } from "@/components/settings-dialog"
+import { useA2ACommands } from "@/components/a2a/use-a2a-commands"
 import { setCursorPosition } from "@/components/prompt-input/editor-dom"
 import { promptLength } from "@/components/prompt-input/history"
 import { type FollowupDraft, sendFollowupDraft } from "@/components/prompt-input/submit"
@@ -71,6 +72,7 @@ import {
   SessionComposerRegion,
 } from "@/pages/session/composer"
 import { createOpenReviewFile, createSessionTabs, createSizing, shouldShowFileTree } from "@/pages/session/helpers"
+import { A2AThread } from "@/components/session/a2a-thread"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 import { type DiffStyle, SessionReviewTab, type SessionReviewTabProps } from "@/pages/session/review-tab"
@@ -367,6 +369,7 @@ export default function Page() {
   const comments = useComments()
   const command = useCommand()
   const terminal = useTerminal()
+  useA2ACommands()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
   const location = useLocation()
   const navigate = useNavigate()
@@ -2083,42 +2086,50 @@ export default function Page() {
           <Match when={params.id}>
             <Show when={messagesReady() ? params.id : undefined} keyed>
               {(_id) => (
-                <MessageTimeline
-                  actions={actions}
-                  scroll={ui.scroll}
-                  onResumeScroll={resumeScroll}
-                  setScrollRef={setScrollRef}
-                  onScheduleScrollState={scheduleScrollState}
-                  onAutoScrollHandleScroll={autoScroll.handleScroll}
-                  onMarkScrollGesture={markScrollGesture}
-                  hasScrollGesture={hasScrollGesture}
-                  onUserScroll={markUserScroll}
-                  onHistoryScroll={onHistoryScroll}
-                  onAutoScrollInteraction={autoScroll.handleInteraction}
-                  shouldAnchorBottom={() =>
-                    !location.hash && !store.messageId && !ui.pendingMessage && !autoScroll.userScrolled()
-                  }
-                  centered={centered()}
-                  setContentRef={(el) => {
-                    content = el
-                    autoScroll.contentRef(el)
+                <div class="flex h-full min-h-0 flex-col">
+                  <div class="min-h-0 flex-1">
+                    <MessageTimeline
+                      actions={actions}
+                      scroll={ui.scroll}
+                      onResumeScroll={resumeScroll}
+                      setScrollRef={setScrollRef}
+                      onScheduleScrollState={scheduleScrollState}
+                      onAutoScrollHandleScroll={autoScroll.handleScroll}
+                      onMarkScrollGesture={markScrollGesture}
+                      hasScrollGesture={hasScrollGesture}
+                      onUserScroll={markUserScroll}
+                      onHistoryScroll={onHistoryScroll}
+                      onAutoScrollInteraction={autoScroll.handleInteraction}
+                      shouldAnchorBottom={() =>
+                        !location.hash && !store.messageId && !ui.pendingMessage && !autoScroll.userScrolled()
+                      }
+                      centered={centered()}
+                      setContentRef={(el) => {
+                        content = el
+                        autoScroll.contentRef(el)
 
-                    const root = scroller
-                    if (root) scheduleScrollState(root)
-                  }}
-                  userMessages={visibleUserMessages()}
-                  setHistoryAnchor={(handlers) => {
-                    captureHistoryAnchor = handlers.capture
-                    restoreHistoryAnchor = handlers.restore
-                  }}
-                  anchor={anchor}
-                  setRevealMessage={(fn) => {
-                    revealMessage = fn
-                  }}
-                  setScrollToEnd={(fn) => {
-                    scrollToEnd = fn
-                  }}
-                />
+                        const root = scroller
+                        if (root) scheduleScrollState(root)
+                      }}
+                      userMessages={visibleUserMessages()}
+                      setHistoryAnchor={(handlers) => {
+                        captureHistoryAnchor = handlers.capture
+                        restoreHistoryAnchor = handlers.restore
+                      }}
+                      anchor={anchor}
+                      setRevealMessage={(fn) => {
+                        revealMessage = fn
+                      }}
+                      setScrollToEnd={(fn) => {
+                        scrollToEnd = fn
+                      }}
+                    />
+                  </div>
+                  <A2AThread
+                    onCancel={() => (params.id ? halt(params.id) : undefined)}
+                    isRunning={() => params.id !== undefined && busy(params.id)}
+                  />
+                </div>
               )}
             </Show>
           </Match>

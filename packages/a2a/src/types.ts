@@ -75,6 +75,43 @@ export const TaskSchema = z.object({
 });
 export type Task = z.infer<typeof TaskSchema>;
 
+export const TaskStatusUpdateEventSchema = z.object({
+  taskId: z.string(),
+  contextId: z.string(),
+  status: TaskStatusSchema,
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+export type TaskStatusUpdateEvent = z.infer<typeof TaskStatusUpdateEventSchema>;
+
+export const TaskArtifactUpdateEventSchema = z.object({
+  taskId: z.string(),
+  contextId: z.string(),
+  artifact: ArtifactSchema,
+  append: z.boolean().optional(),
+  lastChunk: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+export type TaskArtifactUpdateEvent = z.infer<typeof TaskArtifactUpdateEventSchema>;
+
+export const SendMessageResponseSchema = z.union([TaskSchema, MessageSchema]);
+export type SendMessageResponse = z.infer<typeof SendMessageResponseSchema>;
+
+export const StreamEventSchema = z.union([
+  TaskSchema,
+  MessageSchema,
+  TaskStatusUpdateEventSchema,
+  TaskArtifactUpdateEventSchema,
+]);
+export type StreamEvent = z.infer<typeof StreamEventSchema>;
+
+export const TaskListSchema = z.object({
+  tasks: z.array(TaskSchema),
+  nextPageToken: z.string(),
+  pageSize: z.number(),
+  totalSize: z.number(),
+});
+export type TaskList = z.infer<typeof TaskListSchema>;
+
 export const AgentInterfaceSchema = z.object({
   url: z.string(),
   protocolBinding: z.string(),

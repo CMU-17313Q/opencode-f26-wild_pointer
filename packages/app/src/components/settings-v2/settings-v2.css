@@ -23,7 +23,7 @@
   user-select: none;
 }
 
-.settings-v2-panel :is(input, textarea, [contenteditable="true"]) {
+.settings-v2-panel :is(input, textarea, [contenteditable="true"], [data-selectable="true"]) {
   user-select: text;
 }
 
