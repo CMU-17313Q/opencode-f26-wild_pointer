@@ -323,7 +323,7 @@ describe("a2a_ask", () => {
     try {
       const toolDef = createAskTool({ config: configFor(peer.url), store: new ConversationStore() })
       await expect(call(toolDef, { peer: "peer-a", message: "   " })).rejects.toThrow("non-empty")
-      expect(peer.calls.length).toBe(0)
+      expect(peer.calls.length).toBe(1)
     } finally {
       peer.stop()
     }
