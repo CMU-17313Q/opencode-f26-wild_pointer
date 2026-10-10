@@ -45,6 +45,13 @@
     },
     "@opencode-ai/tui#test": {
       "dependsOn": ["^build"],
+    // These tests run entirely from source — bun resolves the workspace
+    // exports (a2a, opencode, @opencode-ai/plugin) to src/*.ts — so no build
+    // artifacts are consumed. "^build" must stay OFF this entry: plugin-a2a
+    // depends on the `opencode` workspace package, and ^build would drag
+    // `opencode#build` (the full web-UI + binary build) into every push.
+    "@opencode-ai/plugin-a2a#test": {
+      "dependsOn": [],
       "outputs": []
     }
   }
