@@ -101,6 +101,23 @@ describe("inbound a2a events", () => {
     }
   })
 
+  test("maxTurns 0 keeps the conversation open past the default cap", async () => {
+    const log = eventLog()
+    const bridge = startBridge(fakeRunner().runner, { maxTurns: 0 }, log.emit)
+    try {
+      const task = await send(bridge.client, userMessage("first"))
+      for (const text of ["second", "third", "fourth"]) {
+        await awaitState(bridge.client, task.id, "TASK_STATE_INPUT_REQUIRED")
+        await send(bridge.client, userMessage(text, { taskId: task.id }))
+      }
+      const waiting = await awaitState(bridge.client, task.id, "TASK_STATE_INPUT_REQUIRED")
+      expect(agentReplies(waiting).length).toBe(4)
+      expect(log.events.some((event) => event.type === "a2a.task.completed")).toBe(false)
+    } finally {
+      bridge.stop()
+    }
+  })
+
   test("cancel emits a2a.task.updated with TASK_STATE_CANCELED", async () => {
     const log = eventLog()
     const bridge = startBridge(fakeRunner({ gate: new Promise(() => {}) }).runner, undefined, log.emit)

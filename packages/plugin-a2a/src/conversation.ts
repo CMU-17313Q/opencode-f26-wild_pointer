@@ -188,7 +188,8 @@ async function runTurn(deps: Deps, peer: string, text: string, opts: Conversatio
     conversation.emit = emit
     taskId.current = conversation.tracker?.taskId ?? taskId.current
     const tracker = conversation.tracker
-    if (tracker && tracker.history().length >= config.maxTurns) return capResult(scoped, peer, tracker)
+    if (tracker && config.maxTurns > 0 && tracker.history().length >= config.maxTurns)
+      return capResult(scoped, peer, tracker)
     if (conversation.terminal !== undefined) return terminalResult(peer, conversation)
 
     // The index this run's first turn will occupy. The inline UI anchors one

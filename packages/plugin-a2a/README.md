@@ -44,7 +44,7 @@ With the flag off, the plugin adds no tools and opens no ports.
 | `enabled`       | `false`  | Turn the plugin on. Also on when `OPENCODE_A2A_ENABLED` is `1` or `true`.                        |
 | `listenPort`    | `0`      | Inbound A2A server port. `0` binds an ephemeral port, reported to peers through the agent card.  |
 | `allowedPeers`  | `{}`     | Map of peer id to base URL. `a2a_ask` refuses peers that are not listed.                         |
-| `maxTurns`      | `4`      | Total conversation turns (all messages, both speakers) before the cap is reached.                |
+| `maxTurns`      | `4`      | Total conversation turns (all messages, both speakers) before the cap is reached. `0` means unbounded — the conversation stays open until a peer completes or cancels the task. |
 | `name`          | unset    | Self-identity sent to peers as the `x-a2a-peer` header, and shown as the agent-card name (`opencode` when unset). |
 | `agent`         | unset    | Agent for inbound prompts; unset uses the opencode default.                                      |
 | `model`         | unset    | Model for inbound prompts as `provider/model`; unset uses the agent's default model.             |
@@ -119,9 +119,72 @@ State lives under `<project>/.opencode/a2a/` (never committed):
   left running settles to `TASK_STATE_FAILED` with `host restarted` on next load.
 - `admin.port` — the bound loopback port, while the plugin is enabled.
 
+## TUI panel (A2A-016)
+
+The package ships a `./tui` target (`{ id: "a2a", tui }`). TUI plugins are declared in `tui.json`
+(not `opencode.json`, which only feeds server plugins) — either `<project>/tui.json` or
+`<project>/.opencode/tui.json`:
+
+```json
+{ "plugin": ["file:///absolute/path/to/packages/plugin-a2a"] }
+```
+
+Once loaded, the TUI picks up three palette commands, each reachable from the prompt's slash menu
+(`/a2a`, `/a2a-new`, `/a2a-peers`):
+
+- **A2A: Sessions** (`/a2a`) — current and past tasks (peer, direction, state, turns, age; running
+  on top). Running it while the panel is open closes it again. Enter opens the live thread: turns
+  in order with speaker labels, the state chip, the verdict artifact when present, and the turn-cap
+  message rendered as the bounded ending rather than an error. `INPUT_REQUIRED` reads as `your turn`
+  on outbound tasks (the peer is waiting for your reply) and `awaiting input` inbound. Inside a
+  thread: `m`/`enter` reply (outbound + `INPUT_REQUIRED` only), `x` cancel a running task,
+  `b`/`backspace` back, arrows/`pageup`/`pagedown` scroll, `r` refresh, `esc` close.
+- **A2A: New conversation** (`/a2a-new`) — peer picker (configured `allowedPeers` plus names seen in
+  sessions) then a message prompt. Follow-ups reuse the same `taskId`.
+- **A2A: Peers** (`/a2a-peers`) — the `allowedPeers` map plus your own identity and listener status.
+  Enter on a
+  peer offers Test (fetches the agent card — the peer's claimed name, which may differ from the
+  local key) and Remove; "Add peer" asks for a name and URL.
+
+The panel only talks to the local A2A-014 control API — no direct plugin imports. Live updates ride
+the existing `a2a.task.*` / `a2a.conversation.turn` bus events; a 2.5s poll keeps views fresh when
+the events are unavailable (e.g. the control stub).
+
+## Control API discovery
+
+The panel resolves the loopback control endpoint in order:
+
+1. `OPENCODE_A2A_ADMIN_URL` — explicit override (dev, tests, the stub below).
+2. The opencode server's own `/a2a/*` routes — the preferred A2A-014 transport.
+3. `.opencode/a2a/admin.port` under the worktree/project dir — the plugin-hosted fallback.
+
+Each candidate is probed (`GET /a2a/sessions`) before use, so stale port files and older server
+builds fall through cleanly.
+
+## Control stub (`demo/control-stub.ts`)
+
+Until A2A-014 lands, the demo stub serves the same `/a2a/*` contract on loopback in front of a real
+loopback A2A peer (the production inbound bridge + a scripted echo runner — no model needed):
+
+```sh
+bun demo/control-stub.ts            # writes .opencode/a2a/admin.port in the cwd
+OPENCODE_A2A_ADMIN_URL=http://127.0.0.1:<port>  # or set it explicitly
+```
+
+It exposes a `loop` peer pointing at its own inbound server, so "New conversation → loop → message"
+produces a real exchange that stays open until you cancel it (`x`). Set `A2A_STUB_TURNS=N` to restore a cap and exercise the `TASK_STATE_COMPLETED` + verdict path. Peer
+add/remove is in-memory only — the real control plane writes `allowedPeers` back to `opencode.json`.
+
 ## Develop
 
 ```sh
 bun test
 bun typecheck
 ```
+
+`test/tui-panel.test.tsx` renders the panel headlessly (OpenTUI's `testRender`) against a fake
+`/a2a/*` control server — sessions list → thread, live `a2a.*` events, peers, and slash-name
+registration — so most panel changes don't need a manual TUI run. One constraint it surfaces: view
+components pushed to `dialog.replace` must return an intrinsic element (e.g. `<box>`) at the top
+level — returning `<Show>`/another component leaks signal reads into the dialog thunk's tracked
+scope and remounts the view on every state change.
