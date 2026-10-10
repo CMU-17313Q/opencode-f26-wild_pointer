@@ -15,12 +15,6 @@ import type { Registry } from "./registry.ts"
 export { ConversationStore, createConversationCore } from "./conversation.ts"
 export type { Conversation, ConversationResult, ConfigProvider } from "./conversation.ts"
 
-type AskArgs = {
-  peer: string
-  message: string
-  taskId?: string
-}
-
 // A2A-014: the tool is now a thin wrapper over the shared conversation core.
 // Callers that already own a core (the plugin) pass it in; tests may pass the
 // original deps and the core is built here.
@@ -84,6 +78,7 @@ function renderResult(config: { maxTurns: number }, peer: string, result: Conver
       peerId: peer,
       ...(result.taskId ? { taskId: result.taskId } : {}),
       ...(result.turn !== undefined ? { turn: result.turn } : {}),
+      ...(result.firstTurn !== undefined ? { firstTurn: result.firstTurn } : {}),
       state: result.state,
     },
   }

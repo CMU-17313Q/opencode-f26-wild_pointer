@@ -46,13 +46,15 @@ export function createSessionRunner(input: {
   const sessions = new Map<string, string>()
   const model = input.model === undefined ? undefined : parseModel(input.model)
 
-  const sessionFor = async (taskId: string, peer?: string) => {
+  const sessionFor = async (taskId: string, text: string, peer?: string) => {
     const known = sessions.get(taskId)
     if (known !== undefined) return known
     const created = await input.client.session.create({
-      // The session record is the identity trail: title names the peer (the
-      // x-a2a-peer header, else the remote address) plus the A2A task id.
-      body: { title: peer === undefined ? `A2A ${taskId}` : `A2A ${peer} ${taskId}` },
+      // Titles are user-facing (sessions list, tabs): lead with the A2A marker
+      // and the peer (the x-a2a-peer header, else the remote address), then a
+      // snippet of the opening message. The task id stays out of the title;
+      // the registry record and the hub are the identity trail.
+      body: { title: sessionTitle(peer, text, taskId) },
       throwOnError: true,
     })
     sessions.set(taskId, created.data.id)
@@ -61,7 +63,7 @@ export function createSessionRunner(input: {
 
   return {
     async run(taskId, text, peer) {
-      const sessionID = await sessionFor(taskId, peer)
+      const sessionID = await sessionFor(taskId, text, peer)
       const result = await input.client.session
         .prompt({
           path: { id: sessionID },
@@ -104,6 +106,22 @@ export function createSessionRunner(input: {
       await input.client.session.abort({ path: { id: sessionID }, throwOnError: true })
     },
   }
+}
+
+// Keep titles scannable in the sessions list: one line, bounded length, cut
+// at a word boundary where possible.
+const TITLE_LIMIT = 48
+
+function sessionTitle(peer: string | undefined, text: string, taskId: string) {
+  const collapsed = text.replace(/\s+/g, " ").trim()
+  const window = collapsed.slice(0, TITLE_LIMIT)
+  const lastSpace = window.lastIndexOf(" ")
+  const clipped =
+    collapsed.length <= TITLE_LIMIT
+      ? collapsed
+      : `${window.slice(0, lastSpace === -1 ? TITLE_LIMIT : lastSpace).trimEnd()}…`
+  const label = clipped === "" ? taskId : clipped
+  return peer === undefined ? `A2A · ${label}` : `A2A ${peer} · ${label}`
 }
 
 // Provider failures arrive as tagged objects (`{ name, data: { message } }`);

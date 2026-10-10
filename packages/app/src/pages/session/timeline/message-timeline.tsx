@@ -52,6 +52,8 @@ import type {
   ToolPart,
   UserMessage,
 } from "@opencode-ai/sdk/v2"
+import { a2aInlineAsk, a2aSegmentFrom, useLiveThreads, type A2AAsk } from "@/a2a/live-threads"
+import { A2AInlineThread } from "@/components/a2a/inline-thread"
 import { showToast } from "@/utils/toast"
 import { downloadSessionExport, fetchSessionExport, sessionExportFilename } from "@/utils/session-export"
 import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
@@ -266,6 +268,7 @@ export function MessageTimeline(props: {
   const tabs = useTabs()
   const dialog = useDialog()
   const language = useLanguage()
+  const a2aLive = useLiveThreads()
   const { params, sessionKey } = useSessionKey()
   const ownerSessionKey = sessionKey()
   const cached = timelineCache.get(ownerSessionKey)
@@ -314,6 +317,31 @@ export function MessageTimeline(props: {
   const parentTitle = createMemo(() => sessionTitle(parent()?.title) ?? language.t("command.session.new"))
   const getMsgParts = (msgId: string) => sync().data.part[msgId] ?? emptyParts
   const getMsgPart = (messageID: string, partID: string) => getMsgParts(messageID).find((part) => part.id === partID)
+  // Total part count across the session: a cheap monotonic proxy for "the
+  // conversation gained new content", consumed by inline A2A boxes to refetch
+  // their registry records without a reload.
+  const partsRevision = createMemo(() => {
+    const id = sessionID()
+    if (!id) return 0
+    return (sync().data.message[id] ?? []).reduce(
+      (count, message) => count + (sync().data.part[message.id]?.length ?? 0),
+      0,
+    )
+  })
+  // Call anchors per task: every completed `a2a_ask` call contributes the turn
+  // index its run starts at. Each inline box takes the next anchor as its
+  // exclusive end, so a box shows exactly its own ask's turns.
+  const a2aAskAnchors = createMemo(() => {
+    const anchors = new Map<string, number[]>()
+    const id = sessionID()
+    if (!id) return anchors
+    const parts = (sync().data.message[id] ?? []).flatMap((message) => getMsgParts(message.id))
+    parts
+      .map((entry) => a2aInlineAsk(entry))
+      .filter((ask): ask is A2AAsk => ask !== undefined)
+      .forEach((ask) => anchors.set(ask.taskId, [...(anchors.get(ask.taskId) ?? []), ask.firstTurn]))
+    return anchors
+  })
   const childTaskDescription = createMemo(() => {
     const id = sessionID()
     if (!id) return
@@ -1068,19 +1096,32 @@ export function MessageTimeline(props: {
         {(message) => (
           <Show when={part()}>
             {(part) => (
-              <MessagePart
-                part={part()}
-                message={message()}
-                showAssistantCopyPartID={assistantCopyPartID(row().userMessageID)}
-                turnDurationMs={turnDurationMs(row().userMessageID)}
-                useV2Actions={settings.general.newLayoutDesigns()}
-                defaultOpen={defaultOpen()}
-                toolOpen={toolOpen[part().id] ?? defaultOpen()}
-                onToolOpenChange={(open) => setToolOpen(part().id, open)}
-                deferToolContent
-                virtualizeDiff={false}
-                onContentRendered={onSizeChange}
-              />
+              <>
+                <MessagePart
+                  part={part()}
+                  message={message()}
+                  showAssistantCopyPartID={assistantCopyPartID(row().userMessageID)}
+                  turnDurationMs={turnDurationMs(row().userMessageID)}
+                  useV2Actions={settings.general.newLayoutDesigns()}
+                  defaultOpen={defaultOpen()}
+                  toolOpen={toolOpen[part().id] ?? defaultOpen()}
+                  onToolOpenChange={(open) => setToolOpen(part().id, open)}
+                  deferToolContent
+                  virtualizeDiff={false}
+                  onContentRendered={onSizeChange}
+                />
+                <Show when={a2aInlineAsk(part())}>
+                  {(ask) => (
+                    <A2AInlineThread
+                      taskId={ask().taskId}
+                      segment={a2aSegmentFrom(a2aAskAnchors().get(ask().taskId), ask().firstTurn)}
+                      thread={a2aLive().threadFor(ask().taskId)}
+                      onSizeChange={onSizeChange}
+                      revision={partsRevision}
+                    />
+                  )}
+                </Show>
+              </>
             )}
           </Show>
         )}

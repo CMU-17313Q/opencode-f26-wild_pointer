@@ -112,6 +112,7 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
           core,
           peers,
           config: () => config,
+          inboundPort: () => inbound?.port,
           portFile: path.join(stateDir, "admin.port"),
         })
       } catch (error) {

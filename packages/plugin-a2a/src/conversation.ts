@@ -105,6 +105,7 @@ export type ConversationResult = {
   peerId: string
   taskId?: string
   turn?: number
+  firstTurn?: number
   reply?: string
   artifact?: string
   message?: string
@@ -190,6 +191,9 @@ async function runTurn(deps: Deps, peer: string, text: string, opts: Conversatio
     if (tracker && tracker.history().length >= config.maxTurns) return capResult(scoped, peer, tracker)
     if (conversation.terminal !== undefined) return terminalResult(peer, conversation)
 
+    // The index this run's first turn will occupy. The inline UI anchors one
+    // box per a2a_ask call on it, so each box shows only its own turns.
+    const firstTurn = tracker?.history().length ?? 0
     const outgoing: Message = {
       messageId: crypto.randomUUID(),
       role: "ROLE_USER",
@@ -213,7 +217,7 @@ async function runTurn(deps: Deps, peer: string, text: string, opts: Conversatio
       : turn
     const outcome = await raceAbort(signal, bounded)
     if (TERMINAL_STATES.includes(outcome.state)) conversation.terminal = outcome.state
-    return outcomeResult(conversation, outcome)
+    return outcomeResult(conversation, outcome, firstTurn)
   } finally {
     signal?.removeEventListener("abort", onAbort)
   }
@@ -524,11 +528,12 @@ async function supportsStreaming(client: A2AClient): Promise<boolean> {
   }
 }
 
-function outcomeResult(conversation: Conversation, outcome: Outcome): ConversationResult {
+function outcomeResult(conversation: Conversation, outcome: Outcome, firstTurn: number): ConversationResult {
   const tracker = conversation.tracker
   return {
     peerId: conversation.peerId,
     ...(tracker ? { taskId: tracker.taskId, turn: tracker.history().length } : {}),
+    firstTurn,
     ...(outcome.reply === undefined ? {} : { reply: outcome.reply }),
     ...(outcome.artifact === undefined ? {} : { artifact: outcome.artifact }),
     state: outcome.state,

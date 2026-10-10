@@ -181,10 +181,12 @@ describe("a2a_ask", () => {
       expect(first.output).toContain("Task: task-1")
       expect(first.output).toContain("Reply: 4")
       expect(first.metadata?.turn).toBe(2)
+      expect(first.metadata?.firstTurn).toBe(0)
 
       const second = await call(toolDef, { peer: "peer-a", message: "Why?", taskId: "task-1" })
       expect(second.output).toContain("Reply: because 2+2 is 4")
       expect(second.metadata?.turn).toBe(4)
+      expect(second.metadata?.firstTurn).toBe(2)
 
       const sent = peer.calls.filter((entry) => entry.method === "message/send")
       expect(sent.length).toBe(2)
@@ -193,6 +195,7 @@ describe("a2a_ask", () => {
       const third = await call(toolDef, { peer: "peer-a", message: "One more?", taskId: "task-1" })
       expect(third.output).toContain("max turns reached without verdict")
       expect(third.metadata?.state).toBe("TASK_STATE_COMPLETED")
+      expect(third.metadata?.firstTurn).toBeUndefined()
       expect(peer.calls.filter((entry) => entry.method === "message/send").length).toBe(2)
     } finally {
       peer.stop()
@@ -207,6 +210,7 @@ describe("a2a_ask", () => {
       expect(result.output).toContain("Reply: streamed reply")
       expect(result.metadata?.state).toBe("TASK_STATE_COMPLETED")
       expect(result.metadata?.taskId).toBe("task-1")
+      expect(result.metadata?.firstTurn).toBe(0)
       expect(peer.calls[0]?.method).toBe("message/stream")
     } finally {
       peer.stop()
@@ -336,6 +340,7 @@ describe("a2a_ask", () => {
       const second = await call(toolDef, { peer: "peer-a", message: "again", taskId: "task-1" })
       expect(second.output).toContain("already finished")
       expect(second.metadata?.state).toBe("TASK_STATE_COMPLETED")
+      expect(second.metadata?.firstTurn).toBeUndefined()
       expect(peer.calls.length).toBe(callsBefore)
     } finally {
       peer.stop()

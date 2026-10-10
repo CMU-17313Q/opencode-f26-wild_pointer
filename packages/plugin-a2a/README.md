@@ -58,7 +58,8 @@ a2a_ask({ peer: string, message: string, taskId?: string })
 
 - Omit `taskId` to start a new task; pass the `Task:` value from the previous result to follow up
   in the same task.
-- Each result reports the peer, task id, turn count, and reply text. The cap result is
+- Each result reports the peer, task id, the run's starting turn (`firstTurn`, the index its first
+  message occupies in the task) and final turn count, and the reply text. The cap result is
   `max turns reached without verdict` (a bounded outcome, not an error).
 - If the peer's Agent Card advertises streaming, the tool consumes `message/stream`; otherwise it
   sends with `message/send` and polls `tasks/get` until a reply or a terminal state.
@@ -72,7 +73,8 @@ a2a_ask({ peer: string, message: string, taskId?: string })
 
 When enabled, the plugin also serves inbound A2A tasks on `listenPort`:
 
-- One opencode session per A2A `taskId`, created on the first message (titled `A2A <taskId>`) and
+- One opencode session per A2A `taskId`, created on the first message — titled `A2A <peer> · <opening-message snippet>`,
+  with the peer omitted when the caller sends no `x-a2a-peer` header — and
   reused for the rest of the task, so the agent keeps the conversation's context.
 - Each peer message runs through the normal session prompt path — the same agents, tools, and
   safety rules as a local prompt, with the optional `agent`/`model` config pinning the target.
@@ -96,6 +98,7 @@ plugin is disabled or disposed. All responses are JSON and carry permissive CORS
 
 | Method   | Path                                  | Purpose                                                        |
 | -------- | ------------------------------------- | -------------------------------------------------------------- |
+| `GET`    | `/a2a/self`                           | This instance's inbound socket (localhost + LAN addresses).    |
 | `GET`    | `/a2a/sessions`                       | Session registry, most recent first.                           |
 | `GET`    | `/a2a/sessions/:taskId`               | One registry record.                                           |
 | `POST`   | `/a2a/conversations`                  | `{ peer, message, origin? }` → start a turn and await it.      |
@@ -111,8 +114,9 @@ tasks/peers return `404`, and peer/network failures return `502`.
 
 State lives under `<project>/.opencode/a2a/` (never committed):
 
-- `sessions.json` — the last 50 tasks by `updatedAt`, written atomically (temp file + rename). A task
-  a dead process left running settles to `TASK_STATE_FAILED` with `host restarted` on next load.
+- `sessions.json` — the last 50 tasks by `updatedAt` (each with its capped turn history, state
+  chain, and latest artifact), written atomically (temp file + rename). A task a dead process
+  left running settles to `TASK_STATE_FAILED` with `host restarted` on next load.
 - `admin.port` — the bound loopback port, while the plugin is enabled.
 
 ## Develop
