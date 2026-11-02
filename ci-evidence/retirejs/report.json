@@ -1,0 +1,1632 @@
+{
+  "version": "6.1.0",
+  "start": "2026-11-02T11:14:08.322Z",
+  "data": [
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/tui/node_modules/@opencode-ai/ui/node_modules/dompurify/dist/purify.cjs.js",
+      "results": [
+        {
+          "version": "3.3.1",
+          "component": "DOMPurify",
+          "npmname": "dompurify",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cj63-jhhr-wcxv",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "When USE_PROFILES is enabled, DOMPurify rebuilds ALLOWED_ATTR as a plain array whose properties are looked up by name, making it susceptible to prototype pollution. If Array.prototype has been polluted with an event handler attribute name (e.g. onclick), DOMPurify will allow that event handler to survive sanitization, resulting in DOM-based XSS.",
+                "githubID": "GHSA-cj63-jhhr-wcxv",
+                "CVE": [
+                  "CVE-2026-65913"
+                ]
+              },
+              "cwe": [
+                "CWE-1321"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cjmm-f4jc-qw8r",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify's ADD_ATTR predicate function mechanism (via EXTRA_ELEMENT_HANDLING.attributeCheck) short-circuits URI validation when the predicate returns true. This allows unsafe protocols such as javascript: to survive sanitization in href and similar attributes, enabling DOM-based XSS when such links are activated.",
+                "githubID": "GHSA-cjmm-f4jc-qw8r",
+                "CVE": [
+                  "CVE-2026-65912"
+                ]
+              },
+              "cwe": [
+                "CWE-183"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h8r8-wccr-v5f2",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify is vulnerable to mutation-XSS (mXSS) when sanitized HTML is embedded into special raw-text wrapper elements such as xmp, script, iframe, noembed, noframes, or noscript before being assigned via innerHTML. Attacker-controlled sequences like </xmp> inside attribute values close the raw-text context during the second parse, causing the sanitized output to mutate into executable markup.",
+                "githubID": "GHSA-h8r8-wccr-v5f2",
+                "CVE": [
+                  "CVE-2026-65914"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/commit/fca0a938b4261ddc9c0293a289935a9029c049f5",
+                "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safe-for-xml",
+                "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safeforxml"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "3.1.3",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify 3.1.3-3.3.1 and 2.5.3-2.5.8 contain a cross-site scripting vulnerability allowing bypass of attribute sanitization via five missing rawtext elements in the SAFE_FOR_XML regex.",
+                "githubID": "GHSA-v2wj-7wpq-c8vv",
+                "CVE": [
+                  "CVE-2026-0540"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-39q2-94rc-95cp"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify has a logic inconsistency where FORBID_TAGS is not checked when a function-based ADD_TAGS (tagCheck) returns true. Due to short-circuit evaluation, the FORBID_TAGS check is never evaluated, allowing explicitly forbidden elements to pass through sanitization when EXTRA_ELEMENT_HANDLING.tagCheck is configured.",
+                "githubID": "GHSA-39q2-94rc-95cp",
+                "CVE": [
+                  "CVE-2026-65903"
+                ]
+              },
+              "cwe": [
+                "CWE-783"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h7mw-gpvr-xq4m",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify has an asymmetric security inconsistency where FORBID_TAGS does not win over a function-based ADD_TAGS predicate, while FORBID_ATTR correctly wins over ADD_ATTR. When ADD_TAGS is provided as a function that returns true, explicitly forbidden tags such as iframe and form pass through sanitization with their attributes intact.",
+                "githubID": "GHSA-h7mw-gpvr-xq4m",
+                "CVE": [
+                  "CVE-2026-41240"
+                ]
+              },
+              "cwe": [
+                "CWE-183",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-crv5-9vww-q3g8",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "1.0.10",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify's SAFE_FOR_TEMPLATES feature fails to strip Mustache/template expressions when RETURN_DOM or RETURN_DOM_FRAGMENT is used. The final string-scrubbing pass that removes expressions like {{...}} is skipped in DOM-return mode, and split text nodes (e.g. from removed intermediate tags) can rejoin to form a complete expression that template-evaluating frameworks like Vue 2 will execute.",
+                "githubID": "GHSA-crv5-9vww-q3g8",
+                "CVE": [
+                  "CVE-2026-41239"
+                ]
+              },
+              "cwe": [
+                "CWE-1289",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-v9jr-rg53-9pgp",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "3.0.1",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify versions 3.0.1 through 3.3.3 are vulnerable to an XSS bypass via prototype pollution. When no CUSTOM_ELEMENT_HANDLING is specified, the fallback plain object inherits from Object.prototype; if an attacker has polluted Object.prototype.tagNameCheck and Object.prototype.attributeNameCheck with permissive regexes, DOMPurify allows arbitrary custom elements with event handler attributes through sanitization.",
+                "githubID": "GHSA-v9jr-rg53-9pgp",
+                "CVE": [
+                  "CVE-2026-41238"
+                ]
+              },
+              "cwe": [
+                "CWE-1321",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-hpcv-96wg-7vj8"
+              ],
+              "below": "3.4.6",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+                "githubID": "GHSA-hpcv-96wg-7vj8",
+                "CVE": [
+                  "CVE-2026-49458"
+                ]
+              },
+              "cwe": [
+                "CWE-79",
+                "CWE-501",
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-r47g-fvhr-h676"
+              ],
+              "below": "3.4.6",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+                "githubID": "GHSA-r47g-fvhr-h676",
+                "CVE": [
+                  "CVE-2026-49459"
+                ]
+              },
+              "cwe": [
+                "CWE-79",
+                "CWE-693",
+                "CWE-1321"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-76mc-f452-cxcm"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+                "githubID": "GHSA-76mc-f452-cxcm",
+                "CVE": [
+                  "CVE-2026-65902"
+                ]
+              },
+              "cwe": [
+                "CWE-501",
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-rp9w-3fw7-7cwq"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+                "githubID": "GHSA-rp9w-3fw7-7cwq",
+                "CVE": [
+                  "CVE-2026-49978"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-x4vx-rjvf-j5p4"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+                "githubID": "GHSA-x4vx-rjvf-j5p4",
+                "CVE": [
+                  "CVE-2026-65901"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-gvmj-g25r-r7wr"
+              ],
+              "below": "3.4.8",
+              "atOrAbove": "3.0.0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: SAFE_FOR_TEMPLATES bypass - template expressions survive sanitization inside <template> content when using DOM output modes",
+                "githubID": "GHSA-gvmj-g25r-r7wr",
+                "CVE": [
+                  "CVE-2026-65900"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-vxr8-fq34-vvx9"
+              ],
+              "below": "3.4.9",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+                "githubID": "GHSA-vxr8-fq34-vvx9",
+                "CVE": [
+                  "CVE-2026-65899"
+                ]
+              },
+              "cwe": [
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cmwh-pvxp-8882"
+              ],
+              "below": "3.4.11",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+                "githubID": "GHSA-cmwh-pvxp-8882",
+                "CVE": [
+                  "CVE-2026-65898"
+                ]
+              },
+              "cwe": [
+                "CWE-471",
+                "CWE-665",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c2j3-45gr-mqc4",
+                "https://github.com/cure53/DOMPurify/pull/1537",
+                "https://github.com/cure53/DOMPurify/commit/a9ca1e537422319a557a9a2aa61f003b23b4a197",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.12"
+              ],
+              "below": "3.4.12",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+                "githubID": "GHSA-c2j3-45gr-mqc4",
+                "CVE": [
+                  "CVE-2026-66010"
+                ]
+              },
+              "cwe": [
+                "CWE-184",
+                "CWE-693",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-55q2-fjhq-7xh7",
+                "https://github.com/cure53/DOMPurify/pull/1557",
+                "https://github.com/cure53/DOMPurify/commit/3067f7746769",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.13"
+              ],
+              "below": "3.4.13",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+                "githubID": "GHSA-55q2-fjhq-7xh7",
+                "CVE": [
+                  "CVE-2026-75838"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-6688-9rhm-gjv2",
+                "https://github.com/cure53/DOMPurify/pull/1636",
+                "https://github.com/cure53/DOMPurify/commit/b9b9d80f7e401771c2ccaef5f45def7eec8f27d7",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.16"
+              ],
+              "below": "3.4.16",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE returns a force-removed rawtext root whose text carries attacker markup — pure HTML reparse executes",
+                "githubID": "GHSA-6688-9rhm-gjv2",
+                "CVE": [
+                  "CVE-2026-109345"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c6gr-qvv4-5v3f",
+                "https://github.com/cure53/DOMPurify/pull/1672",
+                "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.17"
+              ],
+              "below": "3.4.17",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: SMIL attributeName=href guard is skipped when PARSER_MEDIA_TYPE is application/xhtml+xml",
+                "githubID": "GHSA-c6gr-qvv4-5v3f",
+                "CVE": [
+                  "CVE-2026-116802"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-mrv2-3pqr-j5jr",
+                "https://github.com/cure53/DOMPurify/pull/1672",
+                "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.17"
+              ],
+              "below": "3.4.17",
+              "atOrAbove": "0",
+              "severity": "high",
+              "identifiers": {
+                "summary": "DOMPurify IN_PLACE: hook that removes a parent or sibling leaves the detached subtree's event handlers armed (incomplete fix for GHSA-p98j-92pf-mc4p)",
+                "githubID": "GHSA-mrv2-3pqr-j5jr",
+                "CVE": [
+                  "CVE-2026-116803"
+                ]
+              },
+              "cwe": [
+                "CWE-693",
+                "CWE-79"
+              ]
+            }
+          ],
+          "licenses": [
+            "MPL-2.0 OR Apache-2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/tui/node_modules/@opencode-ai/ui/node_modules/dompurify/dist/purify.min.js",
+      "results": [
+        {
+          "version": "3.3.1",
+          "component": "DOMPurify",
+          "npmname": "dompurify",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cj63-jhhr-wcxv",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "When USE_PROFILES is enabled, DOMPurify rebuilds ALLOWED_ATTR as a plain array whose properties are looked up by name, making it susceptible to prototype pollution. If Array.prototype has been polluted with an event handler attribute name (e.g. onclick), DOMPurify will allow that event handler to survive sanitization, resulting in DOM-based XSS.",
+                "githubID": "GHSA-cj63-jhhr-wcxv",
+                "CVE": [
+                  "CVE-2026-65913"
+                ]
+              },
+              "cwe": [
+                "CWE-1321"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cjmm-f4jc-qw8r",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify's ADD_ATTR predicate function mechanism (via EXTRA_ELEMENT_HANDLING.attributeCheck) short-circuits URI validation when the predicate returns true. This allows unsafe protocols such as javascript: to survive sanitization in href and similar attributes, enabling DOM-based XSS when such links are activated.",
+                "githubID": "GHSA-cjmm-f4jc-qw8r",
+                "CVE": [
+                  "CVE-2026-65912"
+                ]
+              },
+              "cwe": [
+                "CWE-183"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h8r8-wccr-v5f2",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify is vulnerable to mutation-XSS (mXSS) when sanitized HTML is embedded into special raw-text wrapper elements such as xmp, script, iframe, noembed, noframes, or noscript before being assigned via innerHTML. Attacker-controlled sequences like </xmp> inside attribute values close the raw-text context during the second parse, causing the sanitized output to mutate into executable markup.",
+                "githubID": "GHSA-h8r8-wccr-v5f2",
+                "CVE": [
+                  "CVE-2026-65914"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/commit/fca0a938b4261ddc9c0293a289935a9029c049f5",
+                "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safe-for-xml",
+                "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safeforxml"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "3.1.3",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify 3.1.3-3.3.1 and 2.5.3-2.5.8 contain a cross-site scripting vulnerability allowing bypass of attribute sanitization via five missing rawtext elements in the SAFE_FOR_XML regex.",
+                "githubID": "GHSA-v2wj-7wpq-c8vv",
+                "CVE": [
+                  "CVE-2026-0540"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-39q2-94rc-95cp"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify has a logic inconsistency where FORBID_TAGS is not checked when a function-based ADD_TAGS (tagCheck) returns true. Due to short-circuit evaluation, the FORBID_TAGS check is never evaluated, allowing explicitly forbidden elements to pass through sanitization when EXTRA_ELEMENT_HANDLING.tagCheck is configured.",
+                "githubID": "GHSA-39q2-94rc-95cp",
+                "CVE": [
+                  "CVE-2026-65903"
+                ]
+              },
+              "cwe": [
+                "CWE-783"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h7mw-gpvr-xq4m",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify has an asymmetric security inconsistency where FORBID_TAGS does not win over a function-based ADD_TAGS predicate, while FORBID_ATTR correctly wins over ADD_ATTR. When ADD_TAGS is provided as a function that returns true, explicitly forbidden tags such as iframe and form pass through sanitization with their attributes intact.",
+                "githubID": "GHSA-h7mw-gpvr-xq4m",
+                "CVE": [
+                  "CVE-2026-41240"
+                ]
+              },
+              "cwe": [
+                "CWE-183",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-crv5-9vww-q3g8",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "1.0.10",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify's SAFE_FOR_TEMPLATES feature fails to strip Mustache/template expressions when RETURN_DOM or RETURN_DOM_FRAGMENT is used. The final string-scrubbing pass that removes expressions like {{...}} is skipped in DOM-return mode, and split text nodes (e.g. from removed intermediate tags) can rejoin to form a complete expression that template-evaluating frameworks like Vue 2 will execute.",
+                "githubID": "GHSA-crv5-9vww-q3g8",
+                "CVE": [
+                  "CVE-2026-41239"
+                ]
+              },
+              "cwe": [
+                "CWE-1289",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-v9jr-rg53-9pgp",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "3.0.1",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify versions 3.0.1 through 3.3.3 are vulnerable to an XSS bypass via prototype pollution. When no CUSTOM_ELEMENT_HANDLING is specified, the fallback plain object inherits from Object.prototype; if an attacker has polluted Object.prototype.tagNameCheck and Object.prototype.attributeNameCheck with permissive regexes, DOMPurify allows arbitrary custom elements with event handler attributes through sanitization.",
+                "githubID": "GHSA-v9jr-rg53-9pgp",
+                "CVE": [
+                  "CVE-2026-41238"
+                ]
+              },
+              "cwe": [
+                "CWE-1321",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-hpcv-96wg-7vj8"
+              ],
+              "below": "3.4.6",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+                "githubID": "GHSA-hpcv-96wg-7vj8",
+                "CVE": [
+                  "CVE-2026-49458"
+                ]
+              },
+              "cwe": [
+                "CWE-79",
+                "CWE-501",
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-r47g-fvhr-h676"
+              ],
+              "below": "3.4.6",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+                "githubID": "GHSA-r47g-fvhr-h676",
+                "CVE": [
+                  "CVE-2026-49459"
+                ]
+              },
+              "cwe": [
+                "CWE-79",
+                "CWE-693",
+                "CWE-1321"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-76mc-f452-cxcm"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+                "githubID": "GHSA-76mc-f452-cxcm",
+                "CVE": [
+                  "CVE-2026-65902"
+                ]
+              },
+              "cwe": [
+                "CWE-501",
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-rp9w-3fw7-7cwq"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+                "githubID": "GHSA-rp9w-3fw7-7cwq",
+                "CVE": [
+                  "CVE-2026-49978"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-x4vx-rjvf-j5p4"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+                "githubID": "GHSA-x4vx-rjvf-j5p4",
+                "CVE": [
+                  "CVE-2026-65901"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-gvmj-g25r-r7wr"
+              ],
+              "below": "3.4.8",
+              "atOrAbove": "3.0.0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: SAFE_FOR_TEMPLATES bypass - template expressions survive sanitization inside <template> content when using DOM output modes",
+                "githubID": "GHSA-gvmj-g25r-r7wr",
+                "CVE": [
+                  "CVE-2026-65900"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-vxr8-fq34-vvx9"
+              ],
+              "below": "3.4.9",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+                "githubID": "GHSA-vxr8-fq34-vvx9",
+                "CVE": [
+                  "CVE-2026-65899"
+                ]
+              },
+              "cwe": [
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cmwh-pvxp-8882"
+              ],
+              "below": "3.4.11",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+                "githubID": "GHSA-cmwh-pvxp-8882",
+                "CVE": [
+                  "CVE-2026-65898"
+                ]
+              },
+              "cwe": [
+                "CWE-471",
+                "CWE-665",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c2j3-45gr-mqc4",
+                "https://github.com/cure53/DOMPurify/pull/1537",
+                "https://github.com/cure53/DOMPurify/commit/a9ca1e537422319a557a9a2aa61f003b23b4a197",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.12"
+              ],
+              "below": "3.4.12",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+                "githubID": "GHSA-c2j3-45gr-mqc4",
+                "CVE": [
+                  "CVE-2026-66010"
+                ]
+              },
+              "cwe": [
+                "CWE-184",
+                "CWE-693",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-55q2-fjhq-7xh7",
+                "https://github.com/cure53/DOMPurify/pull/1557",
+                "https://github.com/cure53/DOMPurify/commit/3067f7746769",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.13"
+              ],
+              "below": "3.4.13",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+                "githubID": "GHSA-55q2-fjhq-7xh7",
+                "CVE": [
+                  "CVE-2026-75838"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-6688-9rhm-gjv2",
+                "https://github.com/cure53/DOMPurify/pull/1636",
+                "https://github.com/cure53/DOMPurify/commit/b9b9d80f7e401771c2ccaef5f45def7eec8f27d7",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.16"
+              ],
+              "below": "3.4.16",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE returns a force-removed rawtext root whose text carries attacker markup — pure HTML reparse executes",
+                "githubID": "GHSA-6688-9rhm-gjv2",
+                "CVE": [
+                  "CVE-2026-109345"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c6gr-qvv4-5v3f",
+                "https://github.com/cure53/DOMPurify/pull/1672",
+                "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.17"
+              ],
+              "below": "3.4.17",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: SMIL attributeName=href guard is skipped when PARSER_MEDIA_TYPE is application/xhtml+xml",
+                "githubID": "GHSA-c6gr-qvv4-5v3f",
+                "CVE": [
+                  "CVE-2026-116802"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-mrv2-3pqr-j5jr",
+                "https://github.com/cure53/DOMPurify/pull/1672",
+                "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.17"
+              ],
+              "below": "3.4.17",
+              "atOrAbove": "0",
+              "severity": "high",
+              "identifiers": {
+                "summary": "DOMPurify IN_PLACE: hook that removes a parent or sibling leaves the detached subtree's event handlers armed (incomplete fix for GHSA-p98j-92pf-mc4p)",
+                "githubID": "GHSA-mrv2-3pqr-j5jr",
+                "CVE": [
+                  "CVE-2026-116803"
+                ]
+              },
+              "cwe": [
+                "CWE-693",
+                "CWE-79"
+              ]
+            }
+          ],
+          "licenses": [
+            "MPL-2.0 OR Apache-2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/tui/node_modules/@opencode-ai/ui/node_modules/dompurify/dist/purify.js",
+      "results": [
+        {
+          "version": "3.3.1",
+          "component": "DOMPurify",
+          "npmname": "dompurify",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cj63-jhhr-wcxv",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "When USE_PROFILES is enabled, DOMPurify rebuilds ALLOWED_ATTR as a plain array whose properties are looked up by name, making it susceptible to prototype pollution. If Array.prototype has been polluted with an event handler attribute name (e.g. onclick), DOMPurify will allow that event handler to survive sanitization, resulting in DOM-based XSS.",
+                "githubID": "GHSA-cj63-jhhr-wcxv",
+                "CVE": [
+                  "CVE-2026-65913"
+                ]
+              },
+              "cwe": [
+                "CWE-1321"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cjmm-f4jc-qw8r",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify's ADD_ATTR predicate function mechanism (via EXTRA_ELEMENT_HANDLING.attributeCheck) short-circuits URI validation when the predicate returns true. This allows unsafe protocols such as javascript: to survive sanitization in href and similar attributes, enabling DOM-based XSS when such links are activated.",
+                "githubID": "GHSA-cjmm-f4jc-qw8r",
+                "CVE": [
+                  "CVE-2026-65912"
+                ]
+              },
+              "cwe": [
+                "CWE-183"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h8r8-wccr-v5f2",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.3.2"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify is vulnerable to mutation-XSS (mXSS) when sanitized HTML is embedded into special raw-text wrapper elements such as xmp, script, iframe, noembed, noframes, or noscript before being assigned via innerHTML. Attacker-controlled sequences like </xmp> inside attribute values close the raw-text context during the second parse, causing the sanitized output to mutate into executable markup.",
+                "githubID": "GHSA-h8r8-wccr-v5f2",
+                "CVE": [
+                  "CVE-2026-65914"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/commit/fca0a938b4261ddc9c0293a289935a9029c049f5",
+                "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safe-for-xml",
+                "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safeforxml"
+              ],
+              "below": "3.3.2",
+              "atOrAbove": "3.1.3",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify 3.1.3-3.3.1 and 2.5.3-2.5.8 contain a cross-site scripting vulnerability allowing bypass of attribute sanitization via five missing rawtext elements in the SAFE_FOR_XML regex.",
+                "githubID": "GHSA-v2wj-7wpq-c8vv",
+                "CVE": [
+                  "CVE-2026-0540"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-39q2-94rc-95cp"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify has a logic inconsistency where FORBID_TAGS is not checked when a function-based ADD_TAGS (tagCheck) returns true. Due to short-circuit evaluation, the FORBID_TAGS check is never evaluated, allowing explicitly forbidden elements to pass through sanitization when EXTRA_ELEMENT_HANDLING.tagCheck is configured.",
+                "githubID": "GHSA-39q2-94rc-95cp",
+                "CVE": [
+                  "CVE-2026-65903"
+                ]
+              },
+              "cwe": [
+                "CWE-783"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h7mw-gpvr-xq4m",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify has an asymmetric security inconsistency where FORBID_TAGS does not win over a function-based ADD_TAGS predicate, while FORBID_ATTR correctly wins over ADD_ATTR. When ADD_TAGS is provided as a function that returns true, explicitly forbidden tags such as iframe and form pass through sanitization with their attributes intact.",
+                "githubID": "GHSA-h7mw-gpvr-xq4m",
+                "CVE": [
+                  "CVE-2026-41240"
+                ]
+              },
+              "cwe": [
+                "CWE-183",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-crv5-9vww-q3g8",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "1.0.10",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify's SAFE_FOR_TEMPLATES feature fails to strip Mustache/template expressions when RETURN_DOM or RETURN_DOM_FRAGMENT is used. The final string-scrubbing pass that removes expressions like {{...}} is skipped in DOM-return mode, and split text nodes (e.g. from removed intermediate tags) can rejoin to form a complete expression that template-evaluating frameworks like Vue 2 will execute.",
+                "githubID": "GHSA-crv5-9vww-q3g8",
+                "CVE": [
+                  "CVE-2026-41239"
+                ]
+              },
+              "cwe": [
+                "CWE-1289",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-v9jr-rg53-9pgp",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.0"
+              ],
+              "below": "3.4.0",
+              "atOrAbove": "3.0.1",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify versions 3.0.1 through 3.3.3 are vulnerable to an XSS bypass via prototype pollution. When no CUSTOM_ELEMENT_HANDLING is specified, the fallback plain object inherits from Object.prototype; if an attacker has polluted Object.prototype.tagNameCheck and Object.prototype.attributeNameCheck with permissive regexes, DOMPurify allows arbitrary custom elements with event handler attributes through sanitization.",
+                "githubID": "GHSA-v9jr-rg53-9pgp",
+                "CVE": [
+                  "CVE-2026-41238"
+                ]
+              },
+              "cwe": [
+                "CWE-1321",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-hpcv-96wg-7vj8"
+              ],
+              "below": "3.4.6",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+                "githubID": "GHSA-hpcv-96wg-7vj8",
+                "CVE": [
+                  "CVE-2026-49458"
+                ]
+              },
+              "cwe": [
+                "CWE-79",
+                "CWE-501",
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-r47g-fvhr-h676"
+              ],
+              "below": "3.4.6",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+                "githubID": "GHSA-r47g-fvhr-h676",
+                "CVE": [
+                  "CVE-2026-49459"
+                ]
+              },
+              "cwe": [
+                "CWE-79",
+                "CWE-693",
+                "CWE-1321"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-76mc-f452-cxcm"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+                "githubID": "GHSA-76mc-f452-cxcm",
+                "CVE": [
+                  "CVE-2026-65902"
+                ]
+              },
+              "cwe": [
+                "CWE-501",
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-rp9w-3fw7-7cwq"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+                "githubID": "GHSA-rp9w-3fw7-7cwq",
+                "CVE": [
+                  "CVE-2026-49978"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-x4vx-rjvf-j5p4"
+              ],
+              "below": "3.4.7",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+                "githubID": "GHSA-x4vx-rjvf-j5p4",
+                "CVE": [
+                  "CVE-2026-65901"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-gvmj-g25r-r7wr"
+              ],
+              "below": "3.4.8",
+              "atOrAbove": "3.0.0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: SAFE_FOR_TEMPLATES bypass - template expressions survive sanitization inside <template> content when using DOM output modes",
+                "githubID": "GHSA-gvmj-g25r-r7wr",
+                "CVE": [
+                  "CVE-2026-65900"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-vxr8-fq34-vvx9"
+              ],
+              "below": "3.4.9",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+                "githubID": "GHSA-vxr8-fq34-vvx9",
+                "CVE": [
+                  "CVE-2026-65899"
+                ]
+              },
+              "cwe": [
+                "CWE-693"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cmwh-pvxp-8882"
+              ],
+              "below": "3.4.11",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+                "githubID": "GHSA-cmwh-pvxp-8882",
+                "CVE": [
+                  "CVE-2026-65898"
+                ]
+              },
+              "cwe": [
+                "CWE-471",
+                "CWE-665",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c2j3-45gr-mqc4",
+                "https://github.com/cure53/DOMPurify/pull/1537",
+                "https://github.com/cure53/DOMPurify/commit/a9ca1e537422319a557a9a2aa61f003b23b4a197",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.12"
+              ],
+              "below": "3.4.12",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+                "githubID": "GHSA-c2j3-45gr-mqc4",
+                "CVE": [
+                  "CVE-2026-66010"
+                ]
+              },
+              "cwe": [
+                "CWE-184",
+                "CWE-693",
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-55q2-fjhq-7xh7",
+                "https://github.com/cure53/DOMPurify/pull/1557",
+                "https://github.com/cure53/DOMPurify/commit/3067f7746769",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.13"
+              ],
+              "below": "3.4.13",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+                "githubID": "GHSA-55q2-fjhq-7xh7",
+                "CVE": [
+                  "CVE-2026-75838"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-6688-9rhm-gjv2",
+                "https://github.com/cure53/DOMPurify/pull/1636",
+                "https://github.com/cure53/DOMPurify/commit/b9b9d80f7e401771c2ccaef5f45def7eec8f27d7",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.16"
+              ],
+              "below": "3.4.16",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: IN_PLACE returns a force-removed rawtext root whose text carries attacker markup — pure HTML reparse executes",
+                "githubID": "GHSA-6688-9rhm-gjv2",
+                "CVE": [
+                  "CVE-2026-109345"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c6gr-qvv4-5v3f",
+                "https://github.com/cure53/DOMPurify/pull/1672",
+                "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.17"
+              ],
+              "below": "3.4.17",
+              "atOrAbove": "0",
+              "severity": "low",
+              "identifiers": {
+                "summary": "DOMPurify: SMIL attributeName=href guard is skipped when PARSER_MEDIA_TYPE is application/xhtml+xml",
+                "githubID": "GHSA-c6gr-qvv4-5v3f",
+                "CVE": [
+                  "CVE-2026-116802"
+                ]
+              },
+              "cwe": [
+                "CWE-79"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/cure53/DOMPurify/security/advisories/GHSA-mrv2-3pqr-j5jr",
+                "https://github.com/cure53/DOMPurify/pull/1672",
+                "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+                "https://github.com/cure53/DOMPurify/releases/tag/3.4.17"
+              ],
+              "below": "3.4.17",
+              "atOrAbove": "0",
+              "severity": "high",
+              "identifiers": {
+                "summary": "DOMPurify IN_PLACE: hook that removes a parent or sibling leaves the detached subtree's event handlers armed (incomplete fix for GHSA-p98j-92pf-mc4p)",
+                "githubID": "GHSA-mrv2-3pqr-j5jr",
+                "CVE": [
+                  "CVE-2026-116803"
+                ]
+              },
+              "cwe": [
+                "CWE-693",
+                "CWE-79"
+              ]
+            }
+          ],
+          "licenses": [
+            "MPL-2.0 OR Apache-2.0"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/server/node_modules/@opencode-ai/core/node_modules/@opentelemetry/exporter-trace-otlp-http/node_modules/@opentelemetry/otlp-exporter-base/node_modules/@opentelemetry/otlp-transformer/node_modules/protobufjs/dist/protobuf.js",
+      "results": [
+        {
+          "version": "7.6.2",
+          "component": "protobufjs",
+          "npmname": "protobufjs",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-f38q-mgvj-vph7"
+              ],
+              "below": "7.6.3",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+                "githubID": "GHSA-f38q-mgvj-vph7",
+                "CVE": [
+                  "CVE-2026-54269"
+                ]
+              },
+              "cwe": [
+                "CWE-674",
+                "CWE-754"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-j3f2-48v5-ccww",
+                "https://github.com/protobufjs/protobuf.js/pull/2352",
+                "https://github.com/protobufjs/protobuf.js/commit/10fba6d54815ceecca8a06b9a6db490c8f5d2217",
+                "https://github.com/protobufjs/protobuf.js/commit/fa5c73add738ceb471e74da8cc2f3727c3d0a69f",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v7.6.5",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v8.6.6"
+              ],
+              "below": "7.6.5",
+              "atOrAbove": "7.5.0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+                "githubID": "GHSA-j3f2-48v5-ccww",
+                "CVE": [
+                  "CVE-2026-59877"
+                ]
+              },
+              "cwe": [
+                "CWE-835"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/server/node_modules/@opencode-ai/core/node_modules/@opentelemetry/exporter-trace-otlp-http/node_modules/@opentelemetry/otlp-exporter-base/node_modules/@opentelemetry/otlp-transformer/node_modules/protobufjs/dist/protobuf.min.js",
+      "results": [
+        {
+          "version": "7.6.2",
+          "component": "protobufjs",
+          "npmname": "protobufjs",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-f38q-mgvj-vph7"
+              ],
+              "below": "7.6.3",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+                "githubID": "GHSA-f38q-mgvj-vph7",
+                "CVE": [
+                  "CVE-2026-54269"
+                ]
+              },
+              "cwe": [
+                "CWE-674",
+                "CWE-754"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-j3f2-48v5-ccww",
+                "https://github.com/protobufjs/protobuf.js/pull/2352",
+                "https://github.com/protobufjs/protobuf.js/commit/10fba6d54815ceecca8a06b9a6db490c8f5d2217",
+                "https://github.com/protobufjs/protobuf.js/commit/fa5c73add738ceb471e74da8cc2f3727c3d0a69f",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v7.6.5",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v8.6.6"
+              ],
+              "below": "7.6.5",
+              "atOrAbove": "7.5.0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+                "githubID": "GHSA-j3f2-48v5-ccww",
+                "CVE": [
+                  "CVE-2026-59877"
+                ]
+              },
+              "cwe": [
+                "CWE-835"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/server/node_modules/@opencode-ai/core/node_modules/@opentelemetry/exporter-trace-otlp-http/node_modules/@opentelemetry/otlp-exporter-base/node_modules/@opentelemetry/otlp-transformer/node_modules/protobufjs/dist/light/protobuf.min.js",
+      "results": [
+        {
+          "version": "7.6.2",
+          "component": "protobufjs",
+          "npmname": "protobufjs",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-f38q-mgvj-vph7"
+              ],
+              "below": "7.6.3",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+                "githubID": "GHSA-f38q-mgvj-vph7",
+                "CVE": [
+                  "CVE-2026-54269"
+                ]
+              },
+              "cwe": [
+                "CWE-674",
+                "CWE-754"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-j3f2-48v5-ccww",
+                "https://github.com/protobufjs/protobuf.js/pull/2352",
+                "https://github.com/protobufjs/protobuf.js/commit/10fba6d54815ceecca8a06b9a6db490c8f5d2217",
+                "https://github.com/protobufjs/protobuf.js/commit/fa5c73add738ceb471e74da8cc2f3727c3d0a69f",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v7.6.5",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v8.6.6"
+              ],
+              "below": "7.6.5",
+              "atOrAbove": "7.5.0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+                "githubID": "GHSA-j3f2-48v5-ccww",
+                "CVE": [
+                  "CVE-2026-59877"
+                ]
+              },
+              "cwe": [
+                "CWE-835"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/server/node_modules/@opencode-ai/core/node_modules/@opentelemetry/exporter-trace-otlp-http/node_modules/@opentelemetry/otlp-exporter-base/node_modules/@opentelemetry/otlp-transformer/node_modules/protobufjs/dist/minimal/protobuf.js",
+      "results": [
+        {
+          "version": "7.6.2",
+          "component": "protobufjs",
+          "npmname": "protobufjs",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-f38q-mgvj-vph7"
+              ],
+              "below": "7.6.3",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+                "githubID": "GHSA-f38q-mgvj-vph7",
+                "CVE": [
+                  "CVE-2026-54269"
+                ]
+              },
+              "cwe": [
+                "CWE-674",
+                "CWE-754"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-j3f2-48v5-ccww",
+                "https://github.com/protobufjs/protobuf.js/pull/2352",
+                "https://github.com/protobufjs/protobuf.js/commit/10fba6d54815ceecca8a06b9a6db490c8f5d2217",
+                "https://github.com/protobufjs/protobuf.js/commit/fa5c73add738ceb471e74da8cc2f3727c3d0a69f",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v7.6.5",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v8.6.6"
+              ],
+              "below": "7.6.5",
+              "atOrAbove": "7.5.0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+                "githubID": "GHSA-j3f2-48v5-ccww",
+                "CVE": [
+                  "CVE-2026-59877"
+                ]
+              },
+              "cwe": [
+                "CWE-835"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/server/node_modules/@opencode-ai/core/node_modules/@opentelemetry/exporter-trace-otlp-http/node_modules/@opentelemetry/otlp-exporter-base/node_modules/@opentelemetry/otlp-transformer/node_modules/protobufjs/dist/minimal/protobuf.min.js",
+      "results": [
+        {
+          "version": "7.6.2",
+          "component": "protobufjs",
+          "npmname": "protobufjs",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-f38q-mgvj-vph7"
+              ],
+              "below": "7.6.3",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+                "githubID": "GHSA-f38q-mgvj-vph7",
+                "CVE": [
+                  "CVE-2026-54269"
+                ]
+              },
+              "cwe": [
+                "CWE-674",
+                "CWE-754"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-j3f2-48v5-ccww",
+                "https://github.com/protobufjs/protobuf.js/pull/2352",
+                "https://github.com/protobufjs/protobuf.js/commit/10fba6d54815ceecca8a06b9a6db490c8f5d2217",
+                "https://github.com/protobufjs/protobuf.js/commit/fa5c73add738ceb471e74da8cc2f3727c3d0a69f",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v7.6.5",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v8.6.6"
+              ],
+              "below": "7.6.5",
+              "atOrAbove": "7.5.0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+                "githubID": "GHSA-j3f2-48v5-ccww",
+                "CVE": [
+                  "CVE-2026-59877"
+                ]
+              },
+              "cwe": [
+                "CWE-835"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "plugin-a2a/node_modules/opencode/node_modules/@opencode-ai/server/node_modules/@opencode-ai/core/node_modules/@opentelemetry/exporter-trace-otlp-http/node_modules/@opentelemetry/otlp-exporter-base/node_modules/@opentelemetry/otlp-transformer/node_modules/protobufjs/dist/light/protobuf.js",
+      "results": [
+        {
+          "version": "7.6.2",
+          "component": "protobufjs",
+          "npmname": "protobufjs",
+          "detection": "filecontent",
+          "vulnerabilities": [
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-f38q-mgvj-vph7"
+              ],
+              "below": "7.6.3",
+              "atOrAbove": "0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+                "githubID": "GHSA-f38q-mgvj-vph7",
+                "CVE": [
+                  "CVE-2026-54269"
+                ]
+              },
+              "cwe": [
+                "CWE-674",
+                "CWE-754"
+              ]
+            },
+            {
+              "info": [
+                "https://github.com/protobufjs/protobuf.js/security/advisories/GHSA-j3f2-48v5-ccww",
+                "https://github.com/protobufjs/protobuf.js/pull/2352",
+                "https://github.com/protobufjs/protobuf.js/commit/10fba6d54815ceecca8a06b9a6db490c8f5d2217",
+                "https://github.com/protobufjs/protobuf.js/commit/fa5c73add738ceb471e74da8cc2f3727c3d0a69f",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v7.6.5",
+                "https://github.com/protobufjs/protobuf.js/releases/tag/protobufjs-v8.6.6"
+              ],
+              "below": "7.6.5",
+              "atOrAbove": "7.5.0",
+              "severity": "medium",
+              "identifiers": {
+                "summary": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+                "githubID": "GHSA-j3f2-48v5-ccww",
+                "CVE": [
+                  "CVE-2026-59877"
+                ]
+              },
+              "cwe": [
+                "CWE-835"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "messages": [],
+  "errors": [],
+  "time": 31.305,
+  "vulnerabilityRepositories": [
+    "https://raw.githubusercontent.com/RetireJS/retire.js/master/repository/jsrepository-v5.json"
+  ]
+}
