@@ -97,10 +97,12 @@
   },
   "devDependencies": {
     "@actions/artifact": "5.0.1",
+    "@eslint/js": "9.39.1",
     "@stryker-mutator/core": "10.1.1",
     "@tsconfig/bun": "catalog:",
     "@types/mime-types": "3.0.1",
     "@typescript/native-preview": "catalog:",
+    "eslint": "9.39.1",
     "glob": "13.0.5",
     "husky": "9.1.7",
     "oxlint": "1.60.0",
@@ -108,7 +110,8 @@
     "prettier": "3.6.2",
     "semver": "^7.6.0",
     "sst": "catalog:",
-    "turbo": "2.10.2"
+    "turbo": "2.10.2",
+    "typescript-eslint": "8.46.4"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.933.0",
