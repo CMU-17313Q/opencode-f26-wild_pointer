@@ -85,6 +85,9 @@ jobs:
 
       - name: Summarize findings
         if: always()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           python3 - <<'PY'
           import collections, json, os, sys
@@ -101,12 +104,27 @@ jobs:
           parse_warnings = report.get("errors", [])
           by_severity = collections.Counter(r["extra"]["severity"] for r in results)
 
+          # Zero scanned files is legitimate when a PR changes nothing under
+          # packages/, and is also exactly what a broken baseline looks like.
+          # Ask git which of the two it is; None means "not applicable".
+          changed_under_packages = None
+          if scanned == 0 and os.environ.get("EVENT_NAME") == "pull_request":
+              import subprocess
+
+              changed_under_packages = subprocess.run(
+                  ["git", "diff", "--name-only", f"{os.environ['BASE_SHA']}...HEAD", "--", "packages"],
+                  capture_output=True,
+                  text=True,
+              ).stdout.split()
+
           lines = ["### Semgrep", ""]
           lines.append(f"- files scanned: **{scanned}**")
           lines.append(f"- findings: **{len(results)}**")
           if by_severity:
               lines.append("- by severity: " + ", ".join(f"{k} {v}" for k, v in sorted(by_severity.items())))
           lines.append(f"- parse warnings: **{len(parse_warnings)}**")
+          if changed_under_packages == []:
+              lines.append("- no files under `packages/` changed in this PR — nothing to scan")
           if results:
               lines += ["", "| Severity | Rule | Location |", "|---|---|---|"]
               for finding in results[:25]:
@@ -121,10 +139,17 @@ jobs:
               handle.write(summary)
           print(summary)
 
-          # A scan that saw no files is a false pass, not a clean run.
           if scanned == 0:
-              print("::error::Semgrep scanned 0 files — treating this as a failure.")
-              sys.exit(1)
+              if changed_under_packages:
+                  print(
+                      f"::error::Semgrep scanned 0 files but this PR changes {len(changed_under_packages)} "
+                      "file(s) under packages/ — treating this as a failure."
+                  )
+                  sys.exit(1)
+              if changed_under_packages is None:
+                  print("::error::Semgrep scanned 0 files — treating this as a failure.")
+                  sys.exit(1)
+              print("::notice::No files under packages/ changed since the baseline commit — nothing to scan.")
           PY
 
       - name: Upload SARIF
