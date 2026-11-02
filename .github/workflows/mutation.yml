@@ -1,0 +1,146 @@
+name: mutation
+
+# Deliberately no `on.pull_request.paths`: a path-filtered workflow that does not
+# run produces no check run, which would leave a required `mutation` check pending
+# forever. The job always runs and the "Detect A2A changes" step no-ops internally.
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # Keep one job with this exact name and no matrix: a matrix would publish
+  # `mutation (packages/a2a)` and the `mutation` status context would never appear.
+  mutation:
+    name: mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        # Naming the shell adds `-o pipefail`, so `stryker | tee` keeps Stryker's exit code.
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect A2A changes
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- \
+            packages/a2a packages/plugin-a2a .github/workflows/mutation.yml)
+          if [ -z "$changed" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No A2A changes in this PR; mutation testing skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Bun
+        if: steps.scope.outputs.run == 'true'
+        uses: ./.github/actions/setup-bun
+
+      # The command runner reports one opaque "All tests" result, so Stryker's
+      # incremental mode cannot see test changes: deleting a test still reuses every
+      # "killed" result. Keying on the test files forces a full run when they change.
+      # plugin-a2a also depends on a2a's source, which its own diff cannot see.
+      - name: Restore a2a incremental results
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/a2a/reports/stryker-incremental.json
+          key: stryker-a2a-${{ hashFiles('packages/a2a/test/**', 'packages/a2a/stryker.config.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            stryker-a2a-${{ hashFiles('packages/a2a/test/**', 'packages/a2a/stryker.config.json') }}-
+
+      - name: Restore plugin-a2a incremental results
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/plugin-a2a/reports/stryker-incremental.json
+          key: stryker-plugin-a2a-${{ hashFiles('packages/plugin-a2a/test/**', 'packages/plugin-a2a/stryker.config.json', 'packages/a2a/src/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            stryker-plugin-a2a-${{ hashFiles('packages/plugin-a2a/test/**', 'packages/plugin-a2a/stryker.config.json', 'packages/a2a/src/**') }}-
+
+      # PRs reuse cached results for unchanged code. Nightly and manual runs pass
+      # --force to retest every mutant, which also refreshes the cache PRs read.
+      # Stryker has no cwd option, so working-directory sets it: bun test must run
+      # from the package dir because the root bunfig.toml blocks tests there.
+      - name: Run Stryker on packages/a2a
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
+        working-directory: packages/a2a
+        env:
+          FORCE_FLAG: ${{ github.event_name != 'pull_request' && '--force' || '' }}
+        run: |
+          mkdir -p reports
+          ../../node_modules/.bin/stryker run $FORCE_FLAG | tee reports/clear-text.log
+
+      - name: Run Stryker on packages/plugin-a2a
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
+        working-directory: packages/plugin-a2a
+        env:
+          FORCE_FLAG: ${{ github.event_name != 'pull_request' && '--force' || '' }}
+        run: |
+          mkdir -p reports
+          ../../node_modules/.bin/stryker run $FORCE_FLAG | tee reports/clear-text.log
+
+      - name: Summarize mutation scores
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
+        run: |
+          for package in a2a plugin-a2a; do
+            log="packages/$package/reports/clear-text.log"
+            [ -f "$log" ] || continue
+            {
+              echo "### packages/$package"
+              echo '```'
+              grep -E '^(-+\|| +\| % Mutation score|File +\|| ?[A-Za-z.-]+( files)?(\.ts)? +\|)' "$log" || true
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Save a2a incremental results
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/a2a/reports/stryker-incremental.json
+          key: stryker-a2a-${{ hashFiles('packages/a2a/test/**', 'packages/a2a/stryker.config.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save plugin-a2a incremental results
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/plugin-a2a/reports/stryker-incremental.json
+          key: stryker-plugin-a2a-${{ hashFiles('packages/plugin-a2a/test/**', 'packages/plugin-a2a/stryker.config.json', 'packages/a2a/src/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload mutation reports
+        if: ${{ !cancelled() && steps.scope.outputs.run == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mutation-report-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            packages/a2a/reports/mutation/
+            packages/a2a/reports/clear-text.log
+            packages/plugin-a2a/reports/mutation/
+            packages/plugin-a2a/reports/clear-text.log
