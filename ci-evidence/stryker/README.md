@@ -28,9 +28,9 @@ Files here:
 - `<package>/score.txt`: Stryker's clear-text score table
 - `<package>/mutation.json`: Stryker's JSON report
 
-The committed JSON omits each mutant's `statusReason` (captured `bun test` output, about
-95% of the raw size) and `projectRoot` (a local path). Statuses, locations and sources are
-unchanged. Every Actions run uploads the untrimmed report and the HTML report as the
+The committed JSON is minified and omits each mutant's `statusReason` (captured `bun test`
+output, about 95% of the raw size) and `projectRoot` (a local path). Statuses, locations and
+sources are unchanged. Every Actions run uploads the untrimmed report and the HTML report as the
 `mutation-report-<attempt>` artifact.
 
 ## Measured behaviour worth knowing
