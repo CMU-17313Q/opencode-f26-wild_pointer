@@ -1,0 +1,34 @@
+
+packages/a2a/src/server.ts
+  230:25  error  'unknown' overrides all other types in this union type  @typescript-eslint/no-redundant-type-constituents
+
+packages/plugin-a2a/src/admin.ts
+   62:7  error  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+   85:1  error  Async function 'sessions' has no 'await' expression                                                                                                                 @typescript-eslint/require-await
+   99:1  error  Async function 'self' has no 'await' expression                                                                                                                     @typescript-eslint/require-await
+  186:9  error  Unsafe assignment of an `any` value                                                                                                                                 @typescript-eslint/no-unsafe-assignment
+
+packages/plugin-a2a/src/conversation.ts
+  130:39  error  Async arrow function has no 'await' expression        @typescript-eslint/require-await
+  253:9   error  Expected the Promise rejection reason to be an Error  @typescript-eslint/prefer-promise-reject-errors
+  272:9   error  Expected the Promise rejection reason to be an Error  @typescript-eslint/prefer-promise-reject-errors
+
+packages/plugin-a2a/src/inbound.ts
+   41:7   error  'server' is never reassigned. Use 'const' instead                                 prefer-const
+   73:11  error  Expected the Promise rejection reason to be an Error                              @typescript-eslint/prefer-promise-reject-errors
+  207:12  error  Promise-returning function provided to property where a void return was expected  @typescript-eslint/no-misused-promises
+
+packages/plugin-a2a/src/peers.ts
+   55:11  error  Unsafe assignment of an `any` value                     @typescript-eslint/no-unsafe-assignment
+  166:13  error  Unsafe assignment of an `any` value                     @typescript-eslint/no-unsafe-assignment
+  208:25  error  '_removed' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  236:58  error  Async arrow function 'apply' has no 'await' expression  @typescript-eslint/require-await
+
+packages/plugin-a2a/src/registry.ts
+  155:40  error  Async arrow function 'restore' has no 'await' expression  @typescript-eslint/require-await
+
+packages/plugin-a2a/src/tui.tsx
+  617:36  error  Async arrow function 'tui' has no 'await' expression  @typescript-eslint/require-await
+
+✖ 17 problems (17 errors, 0 warnings)
+

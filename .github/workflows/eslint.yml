@@ -1,0 +1,98 @@
+name: eslint
+
+# Type-aware ESLint (typescript-eslint recommendedTypeChecked) over the packages
+# we own: packages/a2a and packages/plugin-a2a. Catches floating promises and
+# unsafe `any` flow that typecheck and tests do not.
+#
+# Rollout state (report-only): lint findings (exit 1) do not fail the job. A
+# config error or crash (exit 2) still fails it, so a broken run can never look
+# like a clean one. To make it blocking, drop the exit-code check below and
+# `continue-on-error` once the baseline in ci-evidence/eslint/ is triaged.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  eslint:
+    name: eslint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Run ESLint
+        run: |
+          # Actions runs bash with -e; turn it off so exit codes can be inspected.
+          set +e -uo pipefail
+          mkdir -p ci-evidence/eslint
+          bunx eslint --version > ci-evidence/eslint/version.txt
+          bunx eslint -f json -o ci-evidence/eslint/report.json packages/a2a/src packages/plugin-a2a/src
+          json=$?
+          bunx eslint packages/a2a/src packages/plugin-a2a/src 2>&1 | tee ci-evidence/eslint/eslint.log
+          code=${PIPESTATUS[0]}
+          if [ "$json" -ge 2 ] || [ "$code" -ge 2 ]; then
+            echo "::error::ESLint crashed or is misconfigured (exit $json/$code)"
+            exit 1
+          fi
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::ESLint reported errors (report-only during rollout)"
+          fi
+
+      - name: Summarize findings
+        if: always()
+        run: |
+          node - <<'JS'
+          const fs = require("fs")
+          const path = "ci-evidence/eslint/report.json"
+          if (!fs.existsSync(path)) {
+            console.log(`::error::ESLint report missing (${path})`)
+            process.exit(1)
+          }
+          const report = JSON.parse(fs.readFileSync(path, "utf8"))
+          const messages = report.flatMap((file) => file.messages.map((m) => ({ ...m, file: file.filePath })))
+          const errors = messages.filter((m) => m.severity === 2).length
+          const byRule = Object.entries(
+            messages.reduce((acc, m) => ({ ...acc, [m.ruleId ?? "fatal"]: (acc[m.ruleId ?? "fatal"] ?? 0) + 1 }), {}),
+          ).sort((a, b) => b[1] - a[1])
+          const lines = [
+            "### ESLint",
+            "",
+            `- files linted: **${report.length}**`,
+            `- errors: **${errors}**, warnings: **${messages.length - errors}**`,
+            "",
+            "| Rule | Count |",
+            "|---|---|",
+            ...byRule.map(([rule, n]) => `| \`${rule}\` | ${n} |`),
+          ]
+          const summary = lines.join("\n") + "\n"
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary)
+          console.log(summary)
+          if (report.length === 0) {
+            console.log("::error::ESLint linted 0 files, treating this as a failure.")
+            process.exit(1)
+          }
+          JS
+
+      - name: Upload ESLint artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: eslint-${{ github.run_attempt }}
+          path: ci-evidence/eslint/
+          if-no-files-found: warn
