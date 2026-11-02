@@ -1,0 +1,65 @@
+name: retirejs
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Report-only during rollout; change to "high" after reviewing the committed baseline.
+  RETIRE_SEVERITY: none
+
+jobs:
+  retirejs:
+    name: retirejs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Prepare installed production dependencies for scanning
+        run: node .github/scripts/prepare-retirejs-scan.mjs "$RUNNER_TEMP/retirejs-scan"
+
+      - name: Run Retire.js
+        run: |
+          mkdir -p "$RUNNER_TEMP/retirejs"
+          exitwith=13
+          if [ "$RETIRE_SEVERITY" = none ]; then
+            exitwith=0
+          fi
+          bunx retire@6.1.0 \
+            --path "$RUNNER_TEMP/retirejs-scan" \
+            --ignorefile .retireignore.json \
+            --outputformat json \
+            --outputpath "$RUNNER_TEMP/retirejs/report.json" \
+            --severity "$RETIRE_SEVERITY" \
+            --exitwith "$exitwith"
+
+      - name: Normalize Retire.js report paths
+        if: always()
+        run: |
+          report="$RUNNER_TEMP/retirejs/report.json"
+          if [ -f "$report" ]; then
+            node .github/scripts/normalize-retirejs-report.mjs "$report" "$RUNNER_TEMP/retirejs-scan"
+          fi
+
+      - name: Upload Retire.js report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: retirejs-report-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: ${{ runner.temp }}/retirejs/report.json

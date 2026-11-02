@@ -1,0 +1,6 @@
+[
+  {
+    "path": "@mixmark-io/domino/test/fixture/jquery-*.js",
+    "justification": "These legacy jQuery files are upstream test fixtures in domino and are not runtime code."
+  }
+]
