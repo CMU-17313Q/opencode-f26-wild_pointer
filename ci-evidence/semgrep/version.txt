@@ -1,0 +1,13 @@
+Semgrep install evidence — 2026-11-02T12:05:34+03:00
+
+$ uvx --python 3.12 --from semgrep==1.183.0 semgrep --version
+1.183.0
+
+$ python3 --version
+Python 3.14.7
+
+$ command -v uvx
+/home/j0eeeeey/.local/bin/uvx
+
+Note: local run uses uvx (isolated, cached under ~/.cache/uv); docker on this host requires sudo.
+CI will instead pin the container image semgrep/semgrep:1.183.0.

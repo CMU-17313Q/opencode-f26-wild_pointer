@@ -1,0 +1,169 @@
+name: semgrep
+
+# Source-level SAST over TypeScript/TSX with Semgrep CE.
+#
+# Rollout state (report-only): findings are reported but do not fail the job.
+# A scanner failure (bad config, crash, exit 2/3) still fails the job, so a
+# broken scan can never look like a clean one. To make PRs blocking, add
+# `--severity ERROR --error` to the PR scan once the existing baseline has been
+# triaged — see ci-evidence/semgrep/README.md for the current baseline.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly: newly published rules and advisories re-check unchanged code.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  SEMGREP_SEND_METRICS: "off"
+
+jobs:
+  semgrep:
+    name: semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # --baseline-commit resolves the PR base commit, which needs full history.
+          fetch-depth: 0
+
+      - name: Run Semgrep
+        # Semgrep writes JSON to stdout and its log to stderr, so the redirect
+        # below keeps the report clean without the container needing write access
+        # to the bind mount.
+        run: |
+          set -euo pipefail
+          mkdir -p ci-evidence/semgrep
+          args=(
+            scan
+            --config p/typescript
+            --config p/nodejs
+            --config p/owasp-top-ten
+            --metrics=off
+            --json
+            packages
+          )
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Only report findings this PR introduces. Pre-existing findings are
+            # excluded by the baseline instead of being suppressed in .semgrepignore.
+            args+=(--baseline-commit "${{ github.event.pull_request.base.sha }}")
+          fi
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.183.0 \
+            semgrep "${args[@]}" \
+            > ci-evidence/semgrep/scan.json \
+            2> ci-evidence/semgrep/scan.log
+          tail -n 5 ci-evidence/semgrep/scan.log
+
+      - name: Run Semgrep (SARIF)
+        # Code Scanning wants SARIF, which is a second output format; only the
+        # main-branch and scheduled runs publish it.
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.183.0 \
+            semgrep scan \
+              --config p/typescript \
+              --config p/nodejs \
+              --config p/owasp-top-ten \
+              --metrics=off \
+              --sarif \
+              packages \
+            > ci-evidence/semgrep/scan.sarif
+
+      - name: Summarize findings
+        if: always()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 - <<'PY'
+          import collections, json, os, sys
+
+          path = "ci-evidence/semgrep/scan.json"
+          try:
+              report = json.load(open(path))
+          except Exception as error:
+              print(f"::error::Semgrep report missing or unreadable ({path}): {error}")
+              sys.exit(1)
+
+          results = report.get("results", [])
+          scanned = len(report.get("paths", {}).get("scanned", []))
+          parse_warnings = report.get("errors", [])
+          by_severity = collections.Counter(r["extra"]["severity"] for r in results)
+
+          # Zero scanned files is legitimate when a PR changes nothing under
+          # packages/, and is also exactly what a broken baseline looks like.
+          # Ask git which of the two it is; None means "not applicable".
+          changed_under_packages = None
+          if scanned == 0 and os.environ.get("EVENT_NAME") == "pull_request":
+              import subprocess
+
+              changed_under_packages = subprocess.run(
+                  ["git", "diff", "--name-only", f"{os.environ['BASE_SHA']}...HEAD", "--", "packages"],
+                  capture_output=True,
+                  text=True,
+              ).stdout.split()
+
+          lines = ["### Semgrep", ""]
+          lines.append(f"- files scanned: **{scanned}**")
+          lines.append(f"- findings: **{len(results)}**")
+          if by_severity:
+              lines.append("- by severity: " + ", ".join(f"{k} {v}" for k, v in sorted(by_severity.items())))
+          lines.append(f"- parse warnings: **{len(parse_warnings)}**")
+          if changed_under_packages == []:
+              lines.append("- no files under `packages/` changed in this PR — nothing to scan")
+          if results:
+              lines += ["", "| Severity | Rule | Location |", "|---|---|---|"]
+              for finding in results[:25]:
+                  lines.append(
+                      f"| {finding['extra']['severity']} | `{finding['check_id']}` | "
+                      f"`{finding['path']}:{finding['start']['line']}` |"
+                  )
+              if len(results) > 25:
+                  lines.append(f"| … | {len(results) - 25} more | see artifact |")
+          summary = "\n".join(lines) + "\n"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+              handle.write(summary)
+          print(summary)
+
+          if scanned == 0:
+              if changed_under_packages:
+                  print(
+                      f"::error::Semgrep scanned 0 files but this PR changes {len(changed_under_packages)} "
+                      "file(s) under packages/ — treating this as a failure."
+                  )
+                  sys.exit(1)
+              if changed_under_packages is None:
+                  print("::error::Semgrep scanned 0 files — treating this as a failure.")
+                  sys.exit(1)
+              print("::notice::No files under packages/ changed since the baseline commit — nothing to scan.")
+          PY
+
+      - name: Upload SARIF
+        if: github.event_name != 'pull_request'
+        continue-on-error: true # Code Scanning may not be enabled on the repo yet.
+        uses: github/codeql-action/upload-sarif@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3
+        with:
+          sarif_file: ci-evidence/semgrep/scan.sarif
+          category: semgrep
+
+      - name: Upload Semgrep artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.3.x
+        with:
+          name: semgrep-${{ github.run_attempt }}
+          path: ci-evidence/semgrep/
+          if-no-files-found: warn

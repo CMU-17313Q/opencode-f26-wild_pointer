@@ -1,0 +1,33 @@
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 5903 files tracked by git with 563 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>       7    5903          Community     563                                                                
+  ts               74    3212                                                                                           
+  json              3     309                                                                                           
+  js               68       8                                                                                           
+  dockerfile        4       7                                                                                           
+  html              1       3                                                                                           
+  python          147       1                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 5 (5 blocking)
+ • Rules run: 236
+ • Targets scanned: 5903
+ • Parsed lines: ~99.9%
+ • Scan skipped: 
+   ◦ Files larger than  files 1.0 MB: 13
+   ◦ Files matching .semgrepignore patterns: 96
+ • Scan was limited to files tracked by git
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 236 rules on 5903 files: 5 findings.
