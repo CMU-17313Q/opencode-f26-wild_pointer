@@ -8,7 +8,10 @@ on:
     
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: true
+  # Never cancel a deploy in flight: the script runs `docker compose down` and a
+  # cancellation between that and `up -d` leaves the site offline. Queued runs
+  # are fine — the newest commit deploys when the current one finishes.
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
