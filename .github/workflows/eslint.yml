@@ -38,7 +38,8 @@ jobs:
 
       - name: Run ESLint
         run: |
-          set -uo pipefail
+          # Actions runs bash with -e; turn it off so exit codes can be inspected.
+          set +e -uo pipefail
           mkdir -p ci-evidence/eslint
           bunx eslint --version > ci-evidence/eslint/version.txt
           bunx eslint -f json -o ci-evidence/eslint/report.json packages/a2a/src packages/plugin-a2a/src
