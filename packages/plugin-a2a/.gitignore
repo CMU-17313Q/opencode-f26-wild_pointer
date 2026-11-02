@@ -35,3 +35,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # control-stub runtime state
 .opencode/
+
+# stryker mutation testing
+reports
+.stryker-tmp
+stryker.log
