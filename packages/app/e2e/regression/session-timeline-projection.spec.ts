@@ -128,7 +128,7 @@ test.describe("session timeline projection", () => {
     await expect(page.locator('[data-timeline-row="TurnGap"]')).toBeVisible()
   })
 
-  test("renders comment strips and historical diff summary overflow", async ({ page }) => {
+  test("renders inline comments and historical diff summary overflow", async ({ page }) => {
     const user = userMessage(
       [
         userText("The user made the following comment regarding lines 4 through 8 of src/a.ts: Keep this stable", {
@@ -154,12 +154,13 @@ test.describe("session timeline projection", () => {
     })
     await setupTimeline(page, {
       messages: [user, assistantMessage(), nextUser, nextAssistant],
-      settings: { newLayoutDesigns: false },
     })
     const scroller = page.locator(".scroll-view__viewport", { has: page.locator("[data-timeline-row]") })
     await scroller.evaluate((element) => (element.scrollTop = 0))
 
-    await expect(page.locator('[data-timeline-row="CommentStrip"]')).toBeVisible()
+    // The current interface renders the comment inline on the user message;
+    // the standalone CommentStrip row belonged to the retired legacy layout.
+    await expect(page.locator('[data-timeline-row="CommentStrip"]')).toHaveCount(0)
     await expect(page.getByText("Keep this stable", { exact: true })).toBeVisible()
     await expect(page.locator('[data-timeline-row="DiffSummary"]')).toBeVisible()
     await expect(page.getByText(/show all/i)).toBeVisible()
