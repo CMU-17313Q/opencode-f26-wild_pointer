@@ -1,0 +1,25 @@
+# Semgrep scan exclusions (gitignore syntax).
+# Generated or vendored code only — do not add source files here. Pre-existing
+# findings in real source are excluded by --baseline-commit on PRs instead.
+
+# Dependencies and build output (normally already gitignored).
+**/node_modules/
+**/dist/
+**/build/
+**/.turbo/
+**/coverage/
+**/coverage-html/
+
+# Generated client code: machine-written, and regenerating it must not fail CI.
+**/src/generated/
+**/src/generated-effect/
+**/*.gen.ts
+**/*.d.ts
+
+# Test and browser artifacts.
+**/test-results/
+**/playwright-report/
+.playwright-browsers/
+
+# Test fixtures are data, not code.
+**/e2e/fixtures/
