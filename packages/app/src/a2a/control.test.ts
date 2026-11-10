@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { A2AControlError, pluginIdentityFromConfig, createA2AControl, type A2ASessionRecord, type FetchLike } from "./control"
+import { A2AControlError, REMOTE_ADMIN_BASE, controlBaseUrl, pluginIdentityFromConfig, createA2AControl, type A2ASessionRecord, type FetchLike } from "./control"
 
 // happy-dom replaces globalThis.fetch with a webview-flavoured implementation
 // that cannot talk to a local fixture; the native one can.
@@ -192,6 +192,40 @@ describe("createA2AControl", () => {
     } finally {
       await server.stop()
     }
+  })
+})
+
+describe("controlBaseUrl", () => {
+  test("keeps the direct loopback call for the desktop app and local web", () => {
+    expect(controlBaseUrl("5555")).toBe("http://127.0.0.1:5555")
+    expect(controlBaseUrl("5555", { protocol: "http:", hostname: "localhost" })).toBe("http://127.0.0.1:5555")
+    expect(controlBaseUrl("5555", { protocol: "http:", hostname: "127.0.0.1" })).toBe("http://127.0.0.1:5555")
+    expect(controlBaseUrl("5555", { protocol: "https:", hostname: "[::1]" })).toBe("http://127.0.0.1:5555")
+    // Tauri serves the desktop app from *.localhost and a non-http scheme.
+    expect(controlBaseUrl("5555", { protocol: "http:", hostname: "tauri.localhost" })).toBe("http://127.0.0.1:5555")
+    expect(controlBaseUrl("5555", { protocol: "tauri:", hostname: "localhost" })).toBe("http://127.0.0.1:5555")
+  })
+
+  test("routes a remotely served web build through the proxy prefix", () => {
+    expect(controlBaseUrl("5555", { protocol: "https:", hostname: "vm.example.edu" })).toBe(REMOTE_ADMIN_BASE)
+    expect(controlBaseUrl("5555", { protocol: "http:", hostname: "203.0.113.7" })).toBe(REMOTE_ADMIN_BASE)
+  })
+
+  test("the client calls the proxy prefix when the page is served remotely", async () => {
+    const seen: string[] = []
+    const fetch: FetchLike = async (input) => {
+      seen.push(input)
+      return new Response("[]", { headers: { "content-type": "application/json" } })
+    }
+    const client = createA2AControl({
+      directory: "/project",
+      readPort: async () => "5555",
+      fetch,
+      cache: new Map(),
+      location: { protocol: "https:", hostname: "vm.example.edu" },
+    })
+    expect(await client.listSessions()).toEqual([])
+    expect(seen).toEqual([`${REMOTE_ADMIN_BASE}/a2a/sessions`])
   })
 })
 

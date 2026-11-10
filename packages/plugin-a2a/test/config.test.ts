@@ -6,6 +6,8 @@ describe("resolveConfig", () => {
     expect(resolveConfig({ env: {} })).toEqual({
       enabled: false,
       listenPort: 0,
+      adminPort: 0,
+      adminHost: "127.0.0.1",
       allowedPeers: {},
       maxTurns: 4,
       turnTimeoutMs: 120_000,
@@ -34,10 +36,27 @@ describe("resolveConfig", () => {
     expect(config).toEqual({
       enabled: true,
       listenPort: 4321,
+      adminPort: 0,
+      adminHost: "127.0.0.1",
       allowedPeers: { "peer-a": "http://peer-a.test:4321" },
       maxTurns: 6,
       turnTimeoutMs: 120_000,
     })
+  })
+
+  test("reads the admin control API bind", () => {
+    const defaults = resolveConfig({ env: {} })
+    expect(defaults.adminPort).toBe(0)
+    expect(defaults.adminHost).toBe("127.0.0.1")
+
+    // A proxied deployment pins the port and widens the bind so the proxy can
+    // reach the control API.
+    const exposed = resolveConfig({ env: {}, options: { adminPort: 4001, adminHost: "0.0.0.0" } })
+    expect(exposed.adminPort).toBe(4001)
+    expect(exposed.adminHost).toBe("0.0.0.0")
+
+    expect(() => resolveConfig({ env: {}, options: { adminPort: 70_000 } })).toThrow()
+    expect(() => resolveConfig({ env: {}, options: { adminHost: "" } })).toThrow()
   })
 
   test("reads flat plugin options", () => {

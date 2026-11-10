@@ -114,6 +114,10 @@ export const A2APlugin: Plugin = async (input: PluginInput, options) => {
           config: () => config,
           inboundPort: () => inbound?.port,
           portFile: path.join(stateDir, "admin.port"),
+          // A2A-014: a deployment that fronts the control API with a proxy
+          // pins the port and widens the bind; unset keeps loopback+ephemeral.
+          port: config.adminPort,
+          hostname: config.adminHost,
         })
       } catch (error) {
         // Mirror the inbound listener: a bind failure on the loopback control

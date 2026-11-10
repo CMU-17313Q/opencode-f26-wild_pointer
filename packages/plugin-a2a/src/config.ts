@@ -7,6 +7,11 @@ export const CAP_MESSAGE = "max turns reached without verdict"
 export const A2AConfigSchema = z.object({
   enabled: z.boolean().default(false),
   listenPort: z.number().int().min(0).max(65535).default(0),
+  // The A2A-014 control API the Desktop and TUI drive. Loopback and ephemeral
+  // by default; a deployment that proxies it needs a fixed port and a bind
+  // address the proxy can reach (0.0.0.0 inside a container).
+  adminPort: z.number().int().min(0).max(65535).default(0),
+  adminHost: z.string().min(1).default("127.0.0.1"),
   allowedPeers: z.record(z.string(), z.string()).default({}),
   // 0 disables the cap: conversations stay input-required until a peer
   // completes or cancels the task.

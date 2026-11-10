@@ -97,11 +97,37 @@ export interface A2AControlOptions {
   // Shared across clients by default so the port survives component churn; tests
   // pass a private map to stay isolated.
   cache?: Map<string, string>
+  // Page origin the control API resolves against. Tests inject it; browsers
+  // fall back to `globalThis.location`.
+  location?: PageLocation
 }
 
 const defaultCache = new Map<string, string>()
 
 const HOST = "127.0.0.1"
+
+// A web build served from another origin (the deployed instance) reaches the
+// control API through the host's reverse proxy: its 127.0.0.1 is the viewer's
+// machine, not the one running opencode. The proxy maps this prefix onto the
+// plugin's admin server, so the paths below stay unchanged.
+export const REMOTE_ADMIN_BASE = "/a2a-control"
+
+type PageLocation = { protocol?: string; hostname?: string }
+
+// Desktop and local web keep the direct loopback call; everything else goes
+// through the proxy prefix.
+export function controlBaseUrl(port: string, location?: PageLocation | null) {
+  const page = location ?? (globalThis as { location?: PageLocation }).location
+  if (!page || (page.protocol !== "http:" && page.protocol !== "https:")) return `http://${HOST}:${port}`
+  if (isLoopbackHost(page.hostname ?? "")) return `http://${HOST}:${port}`
+  return REMOTE_ADMIN_BASE
+}
+
+function isLoopbackHost(hostname: string) {
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]") return true
+  // Tauri serves the desktop app from tauri.localhost.
+  return hostname.endsWith(".localhost")
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -138,7 +164,7 @@ export function createA2AControl(options: A2AControlOptions) {
 
   const once = async <T>(path: string, init: RequestInit): Promise<T> => {
     const port = await resolvePort(false)
-    const response = await fetchFn(`http://${HOST}:${port}${path}`, init)
+    const response = await fetchFn(`${controlBaseUrl(port, options.location)}${path}`, init)
     if (!response.ok) throw new A2AControlError("http", await readError(response), response.status)
     return readJson<T>(response)
   }

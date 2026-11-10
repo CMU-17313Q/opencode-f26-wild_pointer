@@ -139,6 +139,8 @@ const config: A2AConfig = {
   enabled: true,
   name: selfName,
   listenPort: peerPort,
+  adminPort: 0,
+  adminHost: "127.0.0.1",
   allowedPeers: {},
   maxTurns,
   turnTimeoutMs: 120_000,

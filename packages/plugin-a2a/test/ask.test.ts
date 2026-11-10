@@ -113,6 +113,8 @@ function configFor(url: string, overrides: Partial<A2AConfig> = {}): A2AConfig {
   return {
     enabled: true,
     listenPort: 0,
+    adminPort: 0,
+    adminHost: "127.0.0.1",
     allowedPeers: { "peer-a": url },
     maxTurns: 4,
     turnTimeoutMs: 120_000,

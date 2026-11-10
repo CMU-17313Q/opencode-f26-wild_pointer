@@ -43,6 +43,8 @@ With the flag off, the plugin adds no tools and opens no ports.
 | --------------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `enabled`       | `false`  | Turn the plugin on. Also on when `OPENCODE_A2A_ENABLED` is `1` or `true`.                        |
 | `listenPort`    | `0`      | Inbound A2A server port. `0` binds an ephemeral port, reported to peers through the agent card.  |
+| `adminPort`     | `0`      | Control API port the Desktop and TUI drive. `0` binds an ephemeral port.                          |
+| `adminHost`     | `127.0.0.1` | Control API bind address. Set `0.0.0.0` when a reverse proxy must reach it — the API is unauthenticated, so gate it at the proxy. |
 | `allowedPeers`  | `{}`     | Map of peer id to base URL. `a2a_ask` refuses peers that are not listed.                         |
 | `maxTurns`      | `4`      | Total conversation turns (all messages, both speakers) before the cap is reached. `0` means unbounded — the conversation stays open until a peer completes or cancels the task. |
 | `name`          | unset    | Self-identity sent to peers as the `x-a2a-peer` header, and shown as the agent-card name (`opencode` when unset). |

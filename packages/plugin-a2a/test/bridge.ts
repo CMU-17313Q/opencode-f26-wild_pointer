@@ -19,7 +19,16 @@ export function eventLog() {
 }
 
 export function configFor(overrides: Partial<A2AConfig> = {}): A2AConfig {
-  return { enabled: true, listenPort: 0, allowedPeers: {}, maxTurns: 4, turnTimeoutMs: 120_000, ...overrides }
+  return {
+    enabled: true,
+    listenPort: 0,
+    adminPort: 0,
+    adminHost: "127.0.0.1",
+    allowedPeers: {},
+    maxTurns: 4,
+    turnTimeoutMs: 120_000,
+    ...overrides,
+  }
 }
 
 export function fakeRunner(
