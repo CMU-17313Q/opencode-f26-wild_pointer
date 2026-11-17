@@ -290,9 +290,12 @@ describe("plugin.openai.ws-pool", () => {
         socket.send(JSON.stringify({ type: "response.completed", response: { id: `resp_${connections}` } }))
       })
     })
+    // idleTimeout is also each request's reply deadline (ws-pool passes it to
+    // the stream), so 20ms failed on slow CI runners before the server replied.
+    // 200ms still prunes well within waitFor's 1s limit.
     const fetch = OpenAIWebSocketPool.createWebSocketFetch({
       url: server.url,
-      idleTimeout: 20,
+      idleTimeout: 200,
     })
 
     const first = await fetch(server.url, streamRequest())

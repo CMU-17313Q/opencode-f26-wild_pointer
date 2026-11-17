@@ -14,6 +14,8 @@ Tests: `packages/plugin-a2a/test/a2a-gchkhaid.property.test.ts`
 | R5 | O-6 | Each inbound conversation gets its own session titled `A2A <peer> · …`; all its messages land there. | Two messages from A in one conversation -> one `A2A A · …` session. C -> separate session. | Yes | Matches one-session-per-conversation model (model / oracle) | `R5: one labelled session per conversation` |
 | R6 | S-3, O-2 | Adding then removing a peer restores the peer list and the removed peer can't be messaged. | Add/remove `bob` -> list unchanged, messaging `bob` -> `Unknown A2A peer`. | New | add -> remove = original list (round-trip) | `R6: add then remove restores the peer list` |
 
+AI use: all four properties (R1, R2, R5, R6), their generators, and the code fixes were written with Claude Code. I checkec correctness, reviewed, ran, and verified each one.
+
 ## Requirement changes
 
 | ID | Original (P4A) | Revised (P4B) | Why |
