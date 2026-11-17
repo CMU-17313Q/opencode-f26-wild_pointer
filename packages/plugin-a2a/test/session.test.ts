@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { assert, asyncProperty, string, stringMatching, uniqueArray } from "fast-check"
 import type { PluginInput } from "@opencode-ai/plugin"
 import { createSessionRunner, SessionAbortedError } from "../src/session.ts"
 
@@ -47,6 +48,19 @@ function fakeClient(reply?: (call: { id: string; body: PromptBody }) => PromptRe
 }
 
 describe("session runner", () => {
+  test("R4: ordinary message text is passed through without URL validation", async () => {
+    // R4: Ordinary message text is not URL-validated.
+    // Kind: metamorphic. Generated strings include punctuation and spaces that a peer URL field would reject.
+    await assert(
+      asyncProperty(string({ maxLength: 80 }), async (message) => {
+        const fake = fakeClient()
+        const runner = createSessionRunner({ client: fake.client })
+        await runner.run("task-1", message)
+        expect(fake.prompts[0].body.parts).toEqual([{ type: "text", text: message }])
+      }),
+    )
+  })
+
   test("creates one session per task and reuses it", async () => {
     const fake = fakeClient()
     const runner = createSessionRunner({ client: fake.client })
@@ -60,6 +74,33 @@ describe("session runner", () => {
     expect(other.sessionID).toBe("ses_2")
     expect(fake.created).toEqual([{ title: "A2A · hi" }, { title: "A2A · hello" }])
     expect(fake.prompts.map((call) => call.id)).toEqual(["ses_1", "ses_1", "ses_2"])
+  })
+
+  test("R5: each generated task keeps its own session across follow-up turns", async () => {
+    // R5: Each A2A task has a distinct session, and its follow-ups reuse only that session.
+    // Kind: model/oracle. The generated task-to-session map is the expected one-session-per-task model.
+    await assert(
+      asyncProperty(
+        uniqueArray(stringMatching(/^[a-z][a-z0-9-]{0,12}$/), { minLength: 1, maxLength: 10 }),
+        async (taskIds) => {
+          const fake = fakeClient()
+          const runner = createSessionRunner({ client: fake.client })
+          const sessions = await Promise.all(
+            taskIds.map(async (taskId) => {
+              const first = await runner.run(taskId, "first message")
+              const followUp = await runner.run(taskId, "follow-up")
+              expect(followUp.sessionID).toBe(first.sessionID)
+              return first.sessionID
+            }),
+          )
+
+          expect(new Set(sessions).size).toBe(taskIds.length)
+          expect(fake.created).toHaveLength(taskIds.length)
+          expect(fake.prompts).toHaveLength(taskIds.length * 2)
+          expect(new Set(fake.prompts.map((prompt) => prompt.id)).size).toBe(taskIds.length)
+        },
+      ),
+    )
   })
 
   test("passes the peer's text through as one text part", async () => {
@@ -177,6 +218,30 @@ describe("session runner", () => {
     }))
     const runner = createSessionRunner({ client: fake.client })
     await expect(runner.run("task-1", "delete everything")).rejects.toThrow("permission denied")
+  })
+
+  test("R6: permission denials never return protected contents for generated paths", async () => {
+    // R6: A2A invocations do not bypass the remote instance's file/tool permission denials.
+    // Kind: invariant. Generated paths are paired with the denial returned by the normal permission layer.
+    await assert(
+      asyncProperty(string({ minLength: 1, maxLength: 80 }), async (protectedPath) => {
+        const fake = fakeClient(() => ({
+          parts: [
+            {
+              type: "tool",
+              state: {
+                status: "error",
+                error: `The user has specified a rule which prevents you from using this specific tool call: ${protectedPath}`,
+              },
+            },
+            { type: "text", text: `protected contents: ${protectedPath}` },
+          ],
+        }))
+        const runner = createSessionRunner({ client: fake.client })
+        await expect(runner.run("task-1", `read ${protectedPath}`)).rejects.toThrow("permission denied")
+        expect(fake.prompts[0].body.parts).toEqual([{ type: "text", text: `read ${protectedPath}` }])
+      }),
+    )
   })
 
   test("a rejected permission prompt fails the run even without reply text", async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { array, assert, asyncProperty, constantFrom, integer, string } from "fast-check"
 import type { Message, Task, TaskState } from "a2a"
 import type { ToolContext } from "@opencode-ai/plugin/tool"
 import { ConversationStore, createAskTool } from "../src/ask.ts"
@@ -306,6 +307,69 @@ describe("a2a_ask", () => {
     } finally {
       peer.stop()
     }
+  })
+
+  test("R1: an unresponsive peer always fails within the configured deadline", async () => {
+    // R1: Outbound requests finish within the fixed default deadline or report a visible timeout.
+    // Kind: invariant. Small deadlines and non-blank messages reach each generated hanging-peer case quickly.
+    const peer = createPeer({ silent: true, state: "TASK_STATE_WORKING" })
+    try {
+      await assert(
+        asyncProperty(
+          integer({ min: 10, max: 30 }),
+          string({ minLength: 1, maxLength: 24 }).filter((message) => message.trim().length > 0),
+          async (timeoutMs, message) => {
+            const canceled: Array<string | undefined> = []
+            const toolDef = toolFor({
+              url: peer.url,
+              timeoutMs,
+              pollMs: 1,
+              cancel: async (taskId) => {
+                canceled.push(taskId)
+              },
+            })
+            const started = performance.now()
+            await expect(call(toolDef, { peer: "peer-a", message })).rejects.toThrow("Timed out waiting")
+            expect(performance.now() - started).toBeLessThan(timeoutMs + 500)
+            expect(canceled).toEqual(["task-1"])
+          },
+        ),
+      )
+    } finally {
+      peer.stop()
+    }
+  })
+
+  test("R7: an empty successful peer response stays distinct from a network failure", async () => {
+    // R7: Empty successful replies remain completed and distinct from network failures.
+    // Kind: model/oracle. Arrays of blank payloads exercise empty replies without inventing text.
+    await assert(
+      asyncProperty(array(constantFrom("", " ", "\n"), { minLength: 4, maxLength: 10 }), async (replies) => {
+        const peer = createPeer({
+          replies,
+          states: replies.map(() => "TASK_STATE_COMPLETED" as const),
+        })
+        try {
+          const toolDef = createAskTool({ config: configFor(peer.url), store: new ConversationStore() })
+          for (const _reply of replies) {
+            const result = await call(toolDef, { peer: "peer-a", message: "return an empty response" })
+            expect(result.metadata?.state).toBe("TASK_STATE_COMPLETED")
+            expect(result.output).toContain("Reply: (none)")
+            expect(result.output).not.toContain("Reply: ok")
+          }
+        } finally {
+          peer.stop()
+        }
+      }),
+    )
+  })
+
+  test("R7: an unreachable peer is reported as a request failure", async () => {
+    const toolDef = createAskTool({
+      config: configFor("http://127.0.0.1:0"),
+      store: new ConversationStore(),
+    })
+    await expect(call(toolDef, { peer: "peer-a", message: "hello" })).rejects.toThrow("request failed")
   })
 
   test("surfaces a terminal failure", async () => {
