@@ -161,7 +161,7 @@ async function runTurn(deps: Deps, peer: string, text: string, opts: Conversatio
   if (!config.enabled) throw new Error("a2a_ask is unavailable: A2A is disabled")
   const message = text.trim()
   if (!message) throw new Error("a2a_ask requires a non-empty message")
-  const baseUrl = config.allowedPeers[peer]
+  const baseUrl = Object.hasOwn(config.allowedPeers, peer) ? config.allowedPeers[peer] : undefined
   if (!baseUrl) throw new Error(`Unknown A2A peer "${peer}". Allowed peers: ${allowedNames(config)}`)
 
   // The registry records every task and turn through the emitter, so a UI

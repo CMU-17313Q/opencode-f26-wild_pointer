@@ -199,13 +199,15 @@ export function createPeerStore(input: {
     addPeer: async (name, url) => {
       const trimmed = name.trim()
       if (!trimmed) throw new Error("A2A peer name must be a non-empty string")
+      if (trimmed in Object.prototype) throw new Error(`"${trimmed}" cannot be used as an A2A peer name`)
       requireUrl(trimmed, url)
       return edit((peers) => ({ ...peers, [trimmed]: url }))
     },
     removePeer: async (name) =>
       edit((peers) => {
-        if (!(name in peers)) throw new Error(`Unknown A2A peer "${name}"`)
-        const { [name]: _removed, ...rest } = peers
+        const trimmed = name.trim()
+        if (!Object.hasOwn(peers, trimmed)) throw new Error(`Unknown A2A peer "${trimmed}"`)
+        const { [trimmed]: _removed, ...rest } = peers
         return rest
       }),
   }
@@ -244,7 +246,7 @@ export function createPeerManager(input: {
       await apply(edit.options)
     },
     remove: async (name) => {
-      if (!(name in input.config().allowedPeers)) throw new Error(`Unknown A2A peer "${name}"`)
+      if (!Object.hasOwn(input.config().allowedPeers, name.trim())) throw new Error(`Unknown A2A peer "${name.trim()}"`)
       const edit = await store.removePeer(name)
       await apply(edit.options)
     },
