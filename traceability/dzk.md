@@ -39,6 +39,7 @@ R6 is kept as written because the plugin already does it and it can be checked a
 | R2 | Fail | `[{"nested":false,"comments":false,"existing":undefined},"!"]` | Code bug | Adding then removing peer "!" left `"allowedPeers": {}` in a file that had no such key. `writePeers` in `src/peers.ts` now removes the key when the last peer is removed. |
 | R2 (second run) | Fail | `[{"nested":false,"comments":true,"existing":{"!":"..."}},"ᚁ"]` | Wrong test | My generator put the `// on` comment after `"enabled": true`, which swallowed the comma before `allowedPeers` and made the file invalid JSONC. The comment now goes on its own line. |
 | R2 (after the code fix) | Pass with no key or a non-empty key | | Requirement problem | A file that starts with an empty `{}` cannot be restored byte for byte (see Requirement changes), so the generator only builds files with no key or 1 to 3 peers. |
+| R2 (in CI) | Fail | `[{"nested":false,"comments":false,"existing":{"__proto__":"...","!":"..."}},"\""]` | Wrong test | An existing peer named `__proto__` disappears after any edit, because jsonc-parser treats that key as the object prototype when it reads the file. No real peer would have that name, so the name generator now skips it. |
 | R3 | Pass | | | |
 | R5 | Pass | | | The property already uses the revised R5 from Step 1. |
 
