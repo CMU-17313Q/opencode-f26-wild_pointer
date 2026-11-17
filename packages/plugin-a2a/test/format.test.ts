@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { array, assert, property, stringMatching, uniqueArray } from "fast-check"
 import {
   artifactText,
   canCancel,
@@ -135,6 +136,26 @@ describe("turns and verdicts", () => {
 })
 
 describe("peer merge", () => {
+  test("R8: configured and previously seen peers remain visible without making unknown peers dialable", () => {
+    // R8: The local peer picker shows configured and history-only peers without making history-only peers dialable.
+    // Kind: model/oracle. Generated session names include duplicates and configured peers to exercise discovery boundaries.
+    assert(
+      property(
+        uniqueArray(stringMatching(/^[a-z][a-z0-9-]{0,8}$/), { maxLength: 10 }),
+        array(stringMatching(/^[a-z][a-z0-9-]{0,8}$/), { maxLength: 20 }),
+        (configuredNames, seenNames) => {
+          const configured = configuredNames.map((name) => ({ name, url: `http://${name}.test` }))
+          const sessions = seenNames.map((name, index) => session({ taskId: `task-${index}`, peerId: name }))
+          const expectedHistoryOnly = [...new Set(seenNames)]
+            .filter((name) => !configuredNames.includes(name))
+            .map((name) => ({ name }))
+
+          expect(mergePeers(configured, sessions)).toEqual([...configured, ...expectedHistoryOnly])
+        },
+      ),
+    )
+  })
+
   test("configured peers first, discovered session peers appended", () => {
     const merged = mergePeers(
       [{ name: "agent-b", url: "http://b:4322" }],

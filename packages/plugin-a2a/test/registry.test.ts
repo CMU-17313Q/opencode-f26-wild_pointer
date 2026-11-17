@@ -2,6 +2,7 @@
 // the same emitters that publish a2a.* events, persists the last 50 by
 // updatedAt, and settles tasks a dead process left running.
 import { describe, expect, test } from "bun:test"
+import { assert, asyncProperty, constantFrom, stringMatching } from "fast-check"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -24,6 +25,48 @@ function outboundEmitter(registry: ReturnType<typeof createConversationRegistry>
 }
 
 describe("session registry", () => {
+  test("R3: every outbound status remains attached to its generated peer and task", async () => {
+    // R3: Every outbound request exposes its state with the target peer and request ID.
+    // Kind: invariant. Generated identities verify that state updates never lose their target association.
+    await assert(
+      asyncProperty(
+        stringMatching(/^[a-z][a-z0-9-]{0,15}$/),
+        stringMatching(/^[a-z][a-z0-9-]{0,15}$/),
+        constantFrom("TASK_STATE_COMPLETED", "TASK_STATE_FAILED"),
+        async (taskId, peerId, finalState) => {
+          const dir = tempDir()
+          try {
+            const registry = createConversationRegistry({ file: join(dir, "sessions.json") })
+            const base: A2AEventEmitter = () => {}
+            const emit = registry.attach(base, {
+              direction: "outbound",
+              origin: "tool",
+              peerId,
+            })
+            emit("a2a.task.dispatched", { taskId, peerId, state: "TASK_STATE_SUBMITTED" })
+            emit(finalState === "TASK_STATE_FAILED" ? "a2a.task.failed" : "a2a.task.completed", {
+              taskId,
+              peerId,
+              state: finalState,
+              ...(finalState === "TASK_STATE_FAILED" ? { content: "connection failed" } : {}),
+            })
+            await registry.flush()
+
+            expect(registry.get(taskId)).toMatchObject({
+              taskId,
+              peerId,
+              state: finalState,
+              states: ["TASK_STATE_SUBMITTED", finalState],
+              ...(finalState === "TASK_STATE_FAILED" ? { message: "connection failed" } : {}),
+            })
+          } finally {
+            rmSync(dir, { recursive: true, force: true })
+          }
+        },
+      ),
+    )
+  })
+
   test("an outbound exchange records peer, direction, origin, state, turns, and session", async () => {
     const dir = tempDir()
     const fake = fakeRunner({ replies: ["pong"] })

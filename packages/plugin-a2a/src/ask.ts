@@ -69,7 +69,7 @@ function renderResult(config: { maxTurns: number }, peer: string, result: Conver
   const lines = [`Peer: ${peer}`]
   if (result.taskId) lines.push(`Task: ${result.taskId}`)
   if (result.turn !== undefined) lines.push(`Turn: ${turnLabel(config, result.turn)}`)
-  lines.push(result.reply ? `Reply: ${result.reply}` : "Reply: (none)")
+  lines.push(result.reply?.trim() ? `Reply: ${result.reply}` : "Reply: (none)")
   if (result.artifact) lines.push(`Artifact: ${result.artifact}`)
   return {
     title: result.turn !== undefined ? `${peer} turn ${turnLabel(config, result.turn)}` : `${peer} reply`,

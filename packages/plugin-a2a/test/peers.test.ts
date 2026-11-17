@@ -2,6 +2,7 @@
 // plugin's own config entry, preserving JSONC comments and the entry's shape,
 // then re-applies so the running tool accepts the peer without a restart.
 import { describe, expect, test } from "bun:test"
+import { assert, asyncProperty, string, stringMatching, uniqueArray } from "fast-check"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -54,7 +55,12 @@ function fixture(text: string) {
   const dir = mkdtempSync(join(tmpdir(), "a2a-peers-"))
   const file = join(dir, "opencode.json")
   writeFileSync(file, text, "utf8")
-  return { dir, file, read: () => readFileSync(file, "utf8"), cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+  return {
+    dir,
+    file,
+    read: () => readFileSync(file, "utf8"),
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  }
 }
 
 function parsed(text: string): Record<string, unknown> {
@@ -127,6 +133,36 @@ describe("peer store edits", () => {
     }
   })
 
+  test("R4: every malformed peer URL is rejected without changing the saved configuration", async () => {
+    // R4: Invalid peer URLs fail validation without changing the configured peer list.
+    // Kind: invariant. Filtered strings are guaranteed not to parse as absolute URLs.
+    const dir = fixture(NESTED)
+    const before = dir.read()
+    const store = createPeerStore({ files: [dir.file] })
+    try {
+      await assert(
+        asyncProperty(
+          string({ minLength: 1, maxLength: 40 }).filter((value) => {
+            try {
+              new URL(value)
+              return false
+            } catch {
+              return true
+            }
+          }),
+          async (url) => {
+            await expect(store.addPeer("generated-peer", url)).rejects.toThrow(
+              'Invalid URL for A2A peer "generated-peer"',
+            )
+            expect(dir.read()).toBe(before)
+          },
+        ),
+      )
+    } finally {
+      dir.cleanup()
+    }
+  })
+
   test("upgrades a bare spec string registration", async () => {
     const dir = fixture(`{ "plugin": ["plugin-a2a"] }`)
     try {
@@ -155,7 +191,7 @@ describe("peer store edits", () => {
 describe("peer manager live apply", () => {
   test("a new peer is usable immediately and removal refuses it", async () => {
     const fixtureDir = fixture(NESTED)
-    const fake = fakeRunner({ replies: ["pong"] })
+    const fake = fakeRunner({ replies: ["pong", "pong"] })
     const bridge = startBridge(fake.runner)
     try {
       const ref = { current: resolveConfig({ options: { enabled: true }, env: {} }) }
@@ -175,9 +211,48 @@ describe("peer manager live apply", () => {
 
       await manager.remove("agent-b")
       await expect(core.startConversation("agent-b", "hi")).rejects.toThrow('Unknown A2A peer "agent-b"')
+
+      await manager.add("agent-b", bridge.baseUrl)
+      expect((await core.startConversation("agent-b", "hi")).reply).toBe("pong")
     } finally {
       bridge.stop()
       fixtureDir.cleanup()
     }
+  })
+
+  test("R2: removing any configured peer prevents further requests until it is re-added", async () => {
+    // R2: Removing a configured peer prevents new requests until that peer is re-added.
+    // Kind: metamorphic. Unique generated names cover configuration edits without peer-name collisions.
+    await assert(
+      asyncProperty(
+        uniqueArray(stringMatching(/^[a-z][a-z0-9-]{0,8}$/), { minLength: 1, maxLength: 5 }),
+        async (names) => {
+          const fixtureDir = fixture(NESTED)
+          try {
+            const ref = { current: resolveConfig({ options: { enabled: true }, env: {} }) }
+            const manager = createPeerManager({
+              files: [fixtureDir.file],
+              config: () => ref.current,
+              resolve: (options) => resolveConfig({ options, env: {} }),
+              apply: (next) => {
+                ref.current = next
+              },
+            })
+            for (const name of names) await manager.add(name, "http://127.0.0.1:23456")
+
+            const removed = names[0]
+            const core = createConversationCore({ config: () => ref.current, store: new ConversationStore() })
+            await manager.remove(removed)
+            expect(manager.list().some((peer) => peer.name === removed)).toBe(false)
+            await expect(core.startConversation(removed, "hello")).rejects.toThrow(`Unknown A2A peer "${removed}"`)
+
+            await manager.add(removed, "http://127.0.0.1:23456")
+            expect(manager.list().some((peer) => peer.name === removed)).toBe(true)
+          } finally {
+            fixtureDir.cleanup()
+          }
+        },
+      ),
+    )
   })
 })

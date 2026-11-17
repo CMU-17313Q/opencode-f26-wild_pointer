@@ -1711,6 +1711,8 @@ it.instance(
   "loop waits while shell runs and starts after shell exits",
   () =>
     Effect.gen(function* () {
+      const { directory: dir } = yield* TestInstance
+      const afs = yield* FSUtil.Service
       const { llm } = yield* useServerConfig(providerCfg)
       const prompt = yield* SessionPrompt.Service
       const sessions = yield* Session.Service
@@ -1718,18 +1720,29 @@ it.instance(
         title: "Pinned",
         permission: [{ permission: "*", pattern: "*", action: "allow" }],
       })
+      const ready = path.join(dir, ".queued-loop-shell-ready")
+      const release = path.join(dir, ".queued-loop-shell-release")
       yield* llm.text("after-shell")
 
       const sh = yield* prompt
-        .shell({ sessionID: chat.id, agent: "build", command: "sleep 0.2" })
+        .shell({
+          sessionID: chat.id,
+          agent: "build",
+          command: ": > '.queued-loop-shell-ready'; while [ ! -f '.queued-loop-shell-release' ]; do sleep 0.01; done",
+        })
         .pipe(Effect.forkChild)
       yield* waitForBusy(chat.id)
+      yield* pollWithTimeout(
+        afs.existsSafe(ready).pipe(Effect.map((exists) => (exists ? (true as const) : undefined))),
+        "shell never created readiness marker",
+      )
 
       const loop = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
       yield* Effect.sleep(50)
 
       expect(yield* llm.calls).toBe(0)
 
+      yield* writeText(release, "")
       yield* Fiber.await(sh)
       const exit = yield* Fiber.await(loop)
 
@@ -1740,8 +1753,8 @@ it.instance(
       }
       expect(yield* llm.calls).toBe(1)
     }),
-  { git: true },
-  10_000,
+  { git: true, config: { ...cfg, shell: "/bin/sh" } },
+  30_000,
 )
 
 it.instance(
@@ -1986,26 +1999,34 @@ unixNoLLMServer(
 unixNoLLMServer(
   "shell rejects when another shell is already running",
   () =>
-    withSh(() =>
-      Effect.gen(function* () {
-        const { prompt, chat } = yield* boot()
+    Effect.gen(function* () {
+      const { prompt, chat } = yield* boot()
+      const { directory: dir } = yield* TestInstance
+      const afs = yield* FSUtil.Service
+      const ready = path.join(dir, ".busy-shell-ready")
 
-        const a = yield* prompt
-          .shell({ sessionID: chat.id, agent: "build", command: "sleep 30" })
-          .pipe(Effect.forkChild)
-        yield* waitForBusy(chat.id)
+      const a = yield* prompt
+        .shell({
+          sessionID: chat.id,
+          agent: "build",
+          command: ": > '.busy-shell-ready'; sleep 30",
+        })
+        .pipe(Effect.forkChild)
+      yield* pollWithTimeout(
+        afs.existsSafe(ready).pipe(Effect.map((exists) => (exists ? (true as const) : undefined))),
+        "shell never created readiness marker",
+      )
 
-        const exit = yield* prompt.shell({ sessionID: chat.id, agent: "build", command: "echo hi" }).pipe(Effect.exit)
-        expect(Exit.isFailure(exit)).toBe(true)
-        if (Exit.isFailure(exit)) {
-          expect(Cause.squash(exit.cause)).toBeInstanceOf(Session.BusyError)
-        }
+      const exit = yield* prompt.shell({ sessionID: chat.id, agent: "build", command: "echo hi" }).pipe(Effect.exit)
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(Cause.squash(exit.cause)).toBeInstanceOf(Session.BusyError)
+      }
 
-        yield* prompt.cancel(chat.id)
-        yield* Fiber.await(a)
-      }),
-    ),
-  { git: true, config: cfg },
+      yield* prompt.cancel(chat.id)
+      yield* Fiber.await(a)
+    }),
+  { git: true, config: { ...cfg, shell: "/bin/sh" } },
   30_000,
 )
 
