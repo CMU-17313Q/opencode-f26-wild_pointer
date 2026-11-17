@@ -138,6 +138,8 @@ export function createConversationRegistry(input: {
       schedule()
       return
     }
+
+    if (existing !== undefined && TERMINAL_STATES.has(existing.state) && properties.state !== existing.state) return
     const record = existing ?? createRecord(taskId, ctx, timestamp)
     if (typeof properties.state === "string") {
       record.state = properties.state as TaskState

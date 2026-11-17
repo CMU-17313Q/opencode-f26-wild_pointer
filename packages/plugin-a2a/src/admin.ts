@@ -160,7 +160,8 @@ async function peers(request: Request, parts: string[], input: AdminDeps): Promi
   const name = decodeURIComponent(parts[2])
   if (parts[3] === "test") {
     if (request.method !== "POST") throw new HttpError(405, "Method not allowed")
-    const url = input.config().allowedPeers[name]
+    const peers = input.config().allowedPeers
+    const url = Object.hasOwn(peers, name) ? peers[name] : undefined
     if (url === undefined) throw new HttpError(404, `Unknown A2A peer "${name}"`)
     const card = await fetchCard(url, input.testTimeoutMs ?? 5_000)
     return json({ peer: name, name: card.name, description: card.description })

@@ -234,7 +234,7 @@ async function mountPanel(input: { root: string }) {
     )
   }
 
-  const app = await testRender(() => <Harness />, { kittyKeyboard: true })
+  const app = await testRender(() => <Harness />, { kittyKeyboard: true, width: 120, height: 40 })
   await wait(() => api !== undefined)
   return {
     app,

@@ -87,9 +87,7 @@ function envEnabled(env: Record<string, string | undefined> | undefined) {
 }
 
 export function requireUrl(id: string, url: string) {
-  try {
-    new URL(url)
-  } catch {
-    throw new Error(`Invalid URL for A2A peer "${id}": ${url}`)
-  }
+  const protocol = URL.canParse(url) ? new URL(url).protocol : undefined
+  if (protocol === "http:" || protocol === "https:") return
+  throw new Error(`Invalid URL for A2A peer "${id}": ${url} (expected http://host:port or https://host:port)`)
 }
