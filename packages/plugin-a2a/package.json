@@ -31,6 +31,7 @@
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
+    "fast-check": "4.10.2",
     "solid-js": "catalog:",
     "typescript": "catalog:"
   },
