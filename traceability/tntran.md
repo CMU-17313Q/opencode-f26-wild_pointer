@@ -1,6 +1,6 @@
 # P4B Traceability — A2A communication
 
-## Step 1: Review Your Requirements
+## Review Project Requirements
 
 R1 and R8 are revised below. R1's original wording implied a user-configurable timeout, but the plugin only exposes a fixed 30-second outbound default; its timeout injection is for internal callers and tests. The revision preserves the interviewees' need for a bounded, visible outcome. R8's global discovery requirement depends on a shared registration service and expiry protocol that this decentralized plugin does not provide. The revision keeps the need to find known peers while limiting discovery to configured peers and local conversation history.
 
@@ -24,7 +24,7 @@ R1 and R8 are revised below. R1's original wording implied a user-configurable t
 
 R2, R3, R4, R5, R6, and R7 are feasible and remain as written. Their acceptance criteria above make the expected outcomes executable.
 
-## Step 2: Properties and tests
+## Properties and tests
 
 The properties are adjacent to the package's existing tests. The generated inputs focus on the relevant boundaries: malformed URLs, valid peer-name keys, arbitrary text, distinct task identities, denied paths, timeout values, empty replies, and duplicate or history-only peer names. Fast-check supplies 100 cases by default; the R7 property batches generated empty replies to keep its HTTP fixture lightweight.
 
@@ -41,7 +41,7 @@ The properties are adjacent to the package's existing tests. The generated input
 
 Opencode suggested and implemented the property-test structure and generators for R1–R8 from the user's requirements and acceptance criteria. The requirement wording and interview evidence above are from the individual Project 4A workbook; the properties are checked against the package implementation.
 
-## Step 3: Run, triage, and fix
+## Run, triage, and fix
 
 The first R7 run shrank a failure to a whitespace-only peer payload. The peer had completed successfully, but the tool rendered `Reply: ` rather than explicitly showing that the reply contained no text. This was a code issue, not a bad property: the tool now treats whitespace-only replies as empty and renders `Reply: (none)`, while preserving the completed state. The timeout, peer removal, URL validation, task/session separation, permission denial, empty-response, and peer-picker properties pass on the implementation.
 
