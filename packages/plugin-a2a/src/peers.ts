@@ -130,7 +130,9 @@ function optionsWithPeers(reg: Registration, peers: Record<string, string>): Rec
 
 function writePeers(text: string, reg: Registration, peers: Record<string, string>): string {
   const upgraded = reg.upgrade ? patch(text, ["plugin", reg.index], [reg.spec, { a2a: {} }]) : text
-  return patch(upgraded, reg.path, peers)
+  // Removing the last peer drops the key, so add-then-remove restores a file
+  // that never had allowedPeers byte for byte.
+  return patch(upgraded, reg.path, Object.keys(peers).length === 0 ? undefined : peers)
 }
 
 export type PeerStore = {
