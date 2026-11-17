@@ -73,9 +73,10 @@ describe("DiffViewerFileTree", () => {
     const failed = await renderFrame(() => (
       <DiffViewerFileTree width={32} files={[]} loading={false} error={new Error("nope")} theme={theme} />
     ))
-    const empty = await renderFrame(() => (
-      <DiffViewerFileTree width={32} files={[]} loading={false} error={undefined} theme={theme} />
-    ))
+    const empty = await renderFrame(
+      () => <DiffViewerFileTree width={32} files={[]} loading={false} error={undefined} theme={theme} />,
+      "No files",
+    )
 
     expect(loading).not.toContain("Loading diff...")
     expect(loading).not.toContain("No files")
@@ -89,22 +90,26 @@ describe("DiffViewerFileTree", () => {
     const src = buildFileTree(files).nodes.find((node) => node.kind === "directory" && node.name === "src")!
 
     const focused = visibleLines(
-      await renderFrame(() => (
-        <DiffViewerFileTree
-          width={32}
-          files={files}
-          loading={false}
-          error={undefined}
-          theme={theme}
-          focused
-          highlightedNode={src.id}
-        />
-      )),
+      await renderFrame(
+        () => (
+          <DiffViewerFileTree
+            width={32}
+            files={files}
+            loading={false}
+            error={undefined}
+            theme={theme}
+            focused
+            highlightedNode={src.id}
+          />
+        ),
+        "▾ src/config",
+      ),
     )
     const unfocused = visibleLines(
-      await renderFrame(() => (
-        <DiffViewerFileTree width={32} files={files} loading={false} error={undefined} theme={theme} />
-      )),
+      await renderFrame(
+        () => <DiffViewerFileTree width={32} files={files} loading={false} error={undefined} theme={theme} />,
+        "▾ src/config",
+      ),
     )
 
     expect(focused).toContain("▾ src/config")
@@ -122,41 +127,47 @@ describe("DiffViewerFileTree", () => {
 
     expect(
       visibleLines(
-        await renderFrame(() => (
-          <DiffViewerFileTree
-            width={32}
-            files={files}
-            loading={false}
-            error={undefined}
-            theme={theme}
-            expandedNodes={collapsed}
-          />
-        )),
+        await renderFrame(
+          () => (
+            <DiffViewerFileTree
+              width={32}
+              files={files}
+              loading={false}
+              error={undefined}
+              theme={theme}
+              expandedNodes={collapsed}
+            />
+          ),
+          "▸ src/config",
+        ),
       ),
     ).toEqual(["▸ src/config"])
 
     expect(
       visibleLines(
-        await renderFrame(() => (
-          <DiffViewerFileTree
-            files={files}
-            width={32}
-            loading={false}
-            error={undefined}
-            theme={theme}
-            expandedNodes={allExpandedFileTreeDirectories(tree)}
-          />
-        )),
+        await renderFrame(
+          () => (
+            <DiffViewerFileTree
+              files={files}
+              width={32}
+              loading={false}
+              error={undefined}
+              theme={theme}
+              expandedNodes={allExpandedFileTreeDirectories(tree)}
+            />
+          ),
+          "▾ src/config",
+        ),
       ),
     ).toEqual(["▾ src/config", "│  └─ tui.ts                 ?"])
   })
 })
 
-async function renderFrame(component: () => JSX.Element) {
+async function renderFrame(component: () => JSX.Element, expected?: string) {
   const app = await testRender(() => withTheme(component), { width: 40, height: 10 })
   try {
     await renderOnceSettled(app)
-    return await captureSettledFrame(app)
+    return await captureSettledFrame(app, expected)
   } finally {
     app.renderer.destroy()
   }
@@ -168,14 +179,17 @@ async function renderOnceSettled(app: Awaited<ReturnType<typeof testRender>>) {
   await app.renderOnce()
 }
 
-async function captureSettledFrame(app: Awaited<ReturnType<typeof testRender>>) {
-  for (let attempt = 0; attempt < 5; attempt++) {
+async function captureSettledFrame(app: Awaited<ReturnType<typeof testRender>>, expected?: string) {
+  const start = Date.now()
+  while (true) {
     const frame = app.captureCharFrame()
-    if (frame.trim().length > 0) return frame
-    await new Promise((resolve) => setTimeout(resolve, 25))
+    if (expected === undefined || frame.includes(expected)) return frame
+    if (Date.now() - start > 4000) {
+      throw new Error(`timed out waiting for ${JSON.stringify(expected)} in frame:\n${frame}`)
+    }
     await app.renderOnce()
+    await Bun.sleep(10)
   }
-  return app.captureCharFrame()
 }
 
 function withTheme(component: () => JSX.Element) {
